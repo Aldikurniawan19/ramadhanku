@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1080661330819",
+    "project_id": "ramadhanapp-261f6",
+    "storage_bucket": "ramadhanapp-261f6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1080661330819:android:9c083c939041bc12b6c4b6",
+        "android_client_info": {
+          "package_name": "com.ramadhan.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAwtF8q9xkcksRpaFjH6L9aZx9hrRrxG3o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1080661330819:android:ab2e07599c918d12b6c4b6",
+        "android_client_info": {
+          "package_name": "com.ramadhan.app.ramadhan_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAwtF8q9xkcksRpaFjH6L9aZx9hrRrxG3o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

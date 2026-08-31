@@ -1,0 +1,87 @@
+# Miscellaneous / OS
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+.history
+.svn/
+migrate_working_dir/
+*.tmp
+*.temp
+
+# Flutter & Dart Build Cache & Dependencies
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+
+# Android Specific
+**/android/.gradle/
+**/android/.kotlin/
+**/android/captures/
+**/android/local.properties
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+**/android/app/build/
+**/android/.cxx/
+
+# Android Signing Secrets (Keystore & Passwords)
+**/android/key.properties
+*.jks
+*.keystore
+*.p12
+*.pem
+
+# iOS / macOS Specific
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets/
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/DerivedData/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xcworkspace
+
+# Windows / Linux / macOS Ephemeral Folders
+**/windows/flutter/ephemeral/
+**/linux/flutter/ephemeral/
+**/macos/Flutter/ephemeral/
+
+# IDE & Editor Configuration
+*.iml
+*.ipr
+*.iws
+.idea/
+.vscode/
+
+# Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+
+# Symbolication & Obfuscation
+app.*.symbols
+app.*.map.json

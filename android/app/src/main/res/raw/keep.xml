@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This file prevents R8/ProGuard from stripping audio resources
+  during release builds. Without this, adzan.mp3
+  can be removed, causing silent notifications on physical devices.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/adzan,@raw/keep" />
