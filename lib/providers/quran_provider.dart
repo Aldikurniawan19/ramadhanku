@@ -189,7 +189,7 @@ class QuranProvider extends ChangeNotifier {
   }
 
   void searchSurah(String query) {
-    _searchQuery = query.toLowerCase();
+    _searchQuery = query;
     _applyFilters();
     notifyListeners();
   }
@@ -197,10 +197,7 @@ class QuranProvider extends ChangeNotifier {
   void _applyFilters() {
     _filteredSurahList = _surahList.where((s) {
       // Search filter
-      bool matchesSearch = _searchQuery.isEmpty ||
-          s.namaLatin.toLowerCase().contains(_searchQuery) ||
-          s.arti.toLowerCase().contains(_searchQuery) ||
-          s.nomor.toString() == _searchQuery;
+      bool matchesSearch = matchesSurahSearch(s, _searchQuery);
 
       // Category filter (Semua, Makkiyah, Madaniyah)
       bool matchesCategory = true;
@@ -214,6 +211,102 @@ class QuranProvider extends ChangeNotifier {
 
       return matchesSearch && matchesCategory;
     }).toList();
+  }
+
+  /// Logic pencarian fleksibel untuk nama surah Al-Qur'an (misal: "annas" -> "An-Nas")
+  bool matchesSurahSearch(SurahModel surah, String rawQuery) {
+    final query = rawQuery.trim().toLowerCase();
+    if (query.isEmpty) return true;
+
+    // 1. Nomor surah (misal: "1", "114", "36")
+    final String surahNumStr = surah.nomor.toString();
+    if (surahNumStr == query || surahNumStr.startsWith(query)) {
+      return true;
+    }
+
+    // Hapus awalan kata "surah", "surat", "qs", "qs." jika ada
+    String cleanQueryStr = query
+        .replaceAll(RegExp(r"^(surah|surat|qs\.?)\s+"), "")
+        .trim();
+    if (cleanQueryStr.isEmpty) cleanQueryStr = query;
+
+    if (surahNumStr == cleanQueryStr) return true;
+
+    // 2. Pencocokan arti surah
+    final String arti = surah.arti.toLowerCase();
+    if (arti.contains(cleanQueryStr) || arti.contains(query)) {
+      return true;
+    }
+
+    // 3. Pencocokan nama Arab
+    if (surah.nama.contains(cleanQueryStr) || surah.nama.contains(query)) {
+      return true;
+    }
+
+    // 4. Pencocokan nama Latin (Fleksibel tanpa tanda hubung / simbol)
+    final String namaLatin = surah.namaLatin.toLowerCase();
+
+    // Direct substring
+    if (namaLatin.contains(cleanQueryStr) || namaLatin.contains(query)) {
+      return true;
+    }
+
+    // Helper 1: Hapus simbol (tanda hubung, petik, spasi, dll)
+    String cleanPunctuation(String text) {
+      return text.replaceAll(RegExp(r"[^a-z0-9]"), "");
+    }
+
+    final cleanName = cleanPunctuation(namaLatin);
+    final cleanQ = cleanPunctuation(cleanQueryStr);
+
+    if (cleanQ.isNotEmpty &&
+        (cleanName.contains(cleanQ) || cleanQ.contains(cleanName))) {
+      return true;
+    }
+
+    // Helper 2: Gabungkan huruf ganda berdampingan ('aa' -> 'a', 'ss' -> 's')
+    String collapseDuplicates(String text) {
+      final c = cleanPunctuation(text);
+      if (c.isEmpty) return c;
+      final sb = StringBuffer();
+      for (int i = 0; i < c.length; i++) {
+        if (i == 0 || c[i] != c[i - 1]) {
+          sb.write(c[i]);
+        }
+      }
+      return sb.toString();
+    }
+
+    final collapsedName = collapseDuplicates(namaLatin);
+    final collapsedQ = collapseDuplicates(cleanQueryStr);
+
+    if (collapsedQ.isNotEmpty &&
+        (collapsedName.contains(collapsedQ) || collapsedQ.contains(collapsedName))) {
+      return true;
+    }
+
+    // Helper 3: Normalisasi fonetik ejaan Indonesia (misal: ts/th -> t, sy/sh -> s, kh -> h, dz/dh -> z)
+    String normalizePhonetics(String text) {
+      String s = collapseDuplicates(text);
+      s = s.replaceAll("ts", "t");
+      s = s.replaceAll("th", "t");
+      s = s.replaceAll("sy", "s");
+      s = s.replaceAll("sh", "s");
+      s = s.replaceAll("kh", "h");
+      s = s.replaceAll("dz", "z");
+      s = s.replaceAll("dh", "z");
+      return s;
+    }
+
+    final normName = normalizePhonetics(namaLatin);
+    final normQ = normalizePhonetics(cleanQueryStr);
+
+    if (normQ.isNotEmpty &&
+        (normName.contains(normQ) || normQ.contains(normName))) {
+      return true;
+    }
+
+    return false;
   }
 
   Future<void> loadSurahDetail(int surahNumber) async {

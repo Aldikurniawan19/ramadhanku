@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/modern_snack_bar.dart';
 import '../../../core/widgets/glass_back_button.dart';
 import '../../../core/widgets/shimmer_skeleton.dart';
+import '../../../core/widgets/islamic_empty_state.dart';
 import '../../../data/services/firebase_service.dart';
 import '../../../providers/quran_provider.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
@@ -60,10 +61,14 @@ class QuranDetailScreen extends StatelessWidget {
                     (surah == null || surah.nomor != surahNumber)
                 ? _buildSkeletonLoader()
                 : surah == null
-                ? const Center(
-                    child: Text(
-                      'Gagal memuat ayat surah',
-                      style: TextStyle(color: AppColors.textMuted),
+                ? Center(
+                    child: IslamicEmptyState(
+                      title: 'Koneksi Internet Terputus',
+                      message:
+                          'Perangkat Anda harus terhubung ke jaringan internet untuk memuat dan membaca ayat Al-Qur\'an.',
+                      actionLabel: 'Coba Lagi',
+                      onActionPressed: () =>
+                          quranProv.loadSurahDetail(surahNumber),
                     ),
                   )
                 : Column(

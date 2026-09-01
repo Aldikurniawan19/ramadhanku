@@ -75,9 +75,7 @@ class _MurottalScreenState extends State<MurottalScreen> {
 
                 // Search query filter
                 if (searchQuery.isNotEmpty) {
-                  return s.namaLatin.toLowerCase().contains(searchQuery) ||
-                      s.arti.toLowerCase().contains(searchQuery) ||
-                      s.nomor.toString() == searchQuery;
+                  return quranProv.matchesSurahSearch(s, searchQuery);
                 }
 
                 return true;
@@ -226,21 +224,32 @@ class _MurottalScreenState extends State<MurottalScreen> {
                       Expanded(
                         child: quranProv.isLoading
                             ? _buildMurottalSkeletonLoader()
-                            : filteredSurah.isEmpty
+                            : (quranProv.errorMessage.isNotEmpty ||
+                                    (quranProv.surahList.isEmpty &&
+                                        searchQuery.isEmpty &&
+                                        _selectedCategory == 'Semua'))
                                 ? IslamicEmptyState(
-                                    title: 'Murottal Tidak Ditemukan',
-                                    message: _searchController.text.isNotEmpty
-                                        ? 'Tidak ada surah yang cocok dengan kata kunci "${_searchController.text}".'
-                                        : 'Belum ada murottal untuk kategori "$_selectedCategory".',
-                                    actionLabel: 'Reset Pencarian',
-                                    onActionPressed: () {
-                                      _searchController.clear();
-                                      setState(() {
-                                        _selectedCategory = 'Semua';
-                                      });
-                                    },
+                                    title: 'Koneksi Internet Terputus',
+                                    message:
+                                        'Perangkat Anda harus terhubung ke jaringan internet untuk memuat dan mendengarkan Murottal Al-Qur\'an.',
+                                    actionLabel: 'Coba Lagi',
+                                    onActionPressed: () => quranProv.loadSurahs(),
                                   )
-                                : ListView.builder(
+                                : filteredSurah.isEmpty
+                                    ? IslamicEmptyState(
+                                        title: 'Murottal Tidak Ditemukan',
+                                        message: _searchController.text.isNotEmpty
+                                            ? 'Tidak ada surah yang cocok dengan kata kunci "${_searchController.text}".'
+                                            : 'Belum ada murottal untuk kategori "$_selectedCategory".',
+                                        actionLabel: 'Reset Pencarian',
+                                        onActionPressed: () {
+                                          _searchController.clear();
+                                          setState(() {
+                                            _selectedCategory = 'Semua';
+                                          });
+                                        },
+                                      )
+                                    : ListView.builder(
                                     padding: EdgeInsets.only(
                                       top: 4,
                                       bottom: isAudioActive ? 90 : 24,

@@ -119,44 +119,16 @@ class _QuranListScreenState extends State<QuranListScreen> {
                   Expanded(
                     child: quranProv.isLoading
                         ? _buildQuranSkeletonLoader()
-                        : quranProv.errorMessage.isNotEmpty && quranProv.surahList.isEmpty
-                            ? Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(24.0),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(
-                                        Icons.wifi_off_rounded,
-                                        size: 48,
-                                        color: AppColors.textMuted,
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Text(
-                                        quranProv.errorMessage,
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      ElevatedButton.icon(
-                                        onPressed: () => quranProv.loadSurahs(),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF063D2E),
-                                          foregroundColor: Colors.white,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                        ),
-                                        icon: const Icon(Icons.refresh_rounded, size: 18),
-                                        label: const Text('Coba Lagi'),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                        : (quranProv.errorMessage.isNotEmpty ||
+                                (quranProv.surahList.isEmpty &&
+                                    _searchController.text.isEmpty &&
+                                    quranProv.selectedCategory == 'Semua'))
+                            ? IslamicEmptyState(
+                                title: 'Koneksi Internet Terputus',
+                                message:
+                                    'Perangkat Anda harus terhubung ke jaringan internet untuk memuat dan menampilkan Al-Qur\'an.',
+                                actionLabel: 'Coba Lagi',
+                                onActionPressed: () => quranProv.loadSurahs(),
                               )
                             : quranProv.surahList.isEmpty
                                 ? IslamicEmptyState(
