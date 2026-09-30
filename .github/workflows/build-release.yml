@@ -28,6 +28,8 @@ jobs:
   build:
     name: 🔨 Build APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Diperlukan agar bisa membuat GitHub Release & upload APK
     
     steps:
       # 1. Checkout source code
