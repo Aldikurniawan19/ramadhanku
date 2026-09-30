@@ -7,12 +7,15 @@ import '../data/services/firebase_service.dart';
 import '../data/services/location_service.dart';
 import '../data/services/notification_service.dart';
 import '../data/services/background_alarm_service.dart';
+import '../data/services/background_scheduler_service.dart';
+import '../data/services/prayer_cache_service.dart';
 
 class PrayerProvider extends ChangeNotifier with WidgetsBindingObserver {
   final PrayerService _prayerService = PrayerService();
   final LocationService _locationService = LocationService();
   final NotificationService _notificationService = NotificationService();
   final BackgroundAlarmService _backgroundAlarmService = BackgroundAlarmService();
+  final BackgroundSchedulerService _backgroundSchedulerService = BackgroundSchedulerService();
 
   PrayerTimesData? _data;
   bool _isLoading = true;
@@ -39,6 +42,10 @@ class PrayerProvider extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       debugPrint('[PrayerProvider] App resumed — re-scheduling notifications');
+
+      // Record that user opened the app (resets inactivity timer)
+      PrayerCacheService.recordAppOpened();
+
       if (_data != null && _data!.prayers.isNotEmpty) {
         _notificationService.scheduleAllPrayerTimes(_data!.prayers, _currentCity);
         // Also schedule background alarms as backup
@@ -47,6 +54,13 @@ class PrayerProvider extends ChangeNotifier with WidgetsBindingObserver {
           cityName: _currentCity,
         ).catchError((e) {
           debugPrint('[PrayerProvider] Error scheduling background alarms on resume: $e');
+        });
+
+        // Also re-schedule multi-day notifications from cache
+        _backgroundSchedulerService.scheduleMultiDayNotifications(
+          cityName: _currentCity,
+        ).catchError((e) {
+          debugPrint('[PrayerProvider] Error scheduling multi-day notifications on resume: $e');
         });
       }
       // Also reload prayer times to ensure countdown is accurate
@@ -108,6 +122,17 @@ class PrayerProvider extends ChangeNotifier with WidgetsBindingObserver {
         } catch (e) {
           debugPrint('[PrayerProvider] Error scheduling background alarms: $e');
         }
+
+        // =====================================================================
+        // NEW: Download 7-day prayer schedule & schedule multi-day notifications
+        //
+        // This ensures that even if the user doesn't open the app for several
+        // days, prayer notifications will continue to fire because:
+        //   1. We download 7 days of schedules upfront
+        //   2. We schedule AndroidAlarmManager alarms for all 7 days
+        //   3. The BackgroundSchedulerService also auto-refreshes every 12 hours
+        // =====================================================================
+        _downloadAndScheduleMultiDay();
       }
     } catch (e) {
       _errorMessage = 'Gagal mengambil jadwal sholat: $e';
@@ -115,6 +140,27 @@ class PrayerProvider extends ChangeNotifier with WidgetsBindingObserver {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Download 7-day prayer schedules and schedule multi-day background alarms.
+  /// Runs asynchronously so it doesn't block the UI.
+  Future<void> _downloadAndScheduleMultiDay() async {
+    try {
+      // Download and cache 7-day schedule
+      await _backgroundSchedulerService.performInitialScheduleDownload(
+        city: _currentCity,
+        country: _currentCountry,
+      );
+
+      // Schedule multi-day background alarms
+      await _backgroundSchedulerService.scheduleMultiDayNotifications(
+        cityName: _currentCity,
+      );
+
+      debugPrint('[PrayerProvider] Multi-day download & scheduling complete');
+    } catch (e) {
+      debugPrint('[PrayerProvider] Error in multi-day scheduling: $e');
     }
   }
 

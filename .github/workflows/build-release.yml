@@ -1,0 +1,121 @@
+# =====================================================================
+# GitHub Actions: Build & Release APK
+#
+# Workflow ini otomatis:
+#   1. Build APK release setiap push ke branch 'main'
+#   2. Upload APK sebagai artifact (bisa didownload dari Actions tab)
+#   3. Buat GitHub Release otomatis dengan APK jika ada tag versi
+#
+# Cara trigger Release:
+#   git tag v2.0.0
+#   git push origin v2.0.0
+#
+# Atau cukup push ke main → APK tersedia di Actions tab
+# =====================================================================
+
+name: Build & Release APK
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'  # Trigger release saat push tag seperti v1.0.0, v2.0.0
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Bisa di-trigger manual dari GitHub UI
+
+jobs:
+  build:
+    name: 🔨 Build APK
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 1. Checkout source code
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Setup Java 17 (required for Android/Gradle)
+      - name: ☕ Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      # 3. Setup Flutter
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.1'
+          channel: 'stable'
+          cache: true
+
+      # 4. Tampilkan info environment (untuk debugging)
+      - name: 📋 Flutter Doctor
+        run: flutter doctor -v
+
+      # 5. Install dependencies
+      - name: 📦 Install dependencies
+        run: flutter pub get
+
+      # 6. Analisis kode (opsional, bisa dimatikan jika terlalu ketat)
+      - name: 🔍 Analyze code
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        continue-on-error: true
+
+      # 7. Build APK Release
+      - name: 🏗️ Build APK Release
+        run: flutter build apk --release
+
+      # 8. Rename APK agar mudah dikenali
+      - name: 📝 Rename APK
+        run: |
+          APK_PATH=$(find build/app/outputs -name "*.apk" -type f | head -1)
+          if [ -n "$APK_PATH" ]; then
+            cp "$APK_PATH" build/RamadhanApp-release.apk
+            echo "APK_FILE=build/RamadhanApp-release.apk" >> $GITHUB_ENV
+            echo "✅ APK found and copied: $APK_PATH"
+          else
+            echo "⚠️ APK not found in standard path, searching..."
+            find build -name "*.apk" -type f
+            # Fallback: coba flutter-apk path
+            if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
+              cp build/app/outputs/flutter-apk/app-release.apk build/RamadhanApp-release.apk
+              echo "APK_FILE=build/RamadhanApp-release.apk" >> $GITHUB_ENV
+            fi
+          fi
+
+      # 9. Upload APK sebagai artifact (selalu tersedia di Actions tab)
+      - name: 📤 Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RamadhanApp-APK
+          path: build/RamadhanApp-release.apk
+          if-no-files-found: warn
+          retention-days: 90
+
+      # 10. Buat GitHub Release (hanya saat push tag v*)
+      - name: 🚀 Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Ramadhan App ${{ github.ref_name }}"
+          body: |
+            ## 🕌 Ramadhan App ${{ github.ref_name }}
+            
+            ### 📥 Download
+            Download file **RamadhanApp-release.apk** di bawah ini untuk install di Android.
+            
+            ### 📋 Cara Install
+            1. Download file APK
+            2. Buka file APK di HP Android
+            3. Izinkan install dari sumber tidak dikenal jika diminta
+            4. Install dan buka aplikasi
+            
+            ---
+            *Build otomatis oleh GitHub Actions*
+          files: build/RamadhanApp-release.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

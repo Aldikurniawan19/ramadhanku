@@ -7,6 +7,8 @@ import 'core/theme/app_theme.dart';
 import 'data/services/firebase_service.dart';
 import 'data/services/notification_service.dart';
 import 'data/services/background_alarm_service.dart';
+import 'data/services/background_scheduler_service.dart';
+import 'data/services/prayer_cache_service.dart';
 import 'providers/prayer_provider.dart';
 import 'providers/quran_provider.dart';
 import 'providers/doa_provider.dart';
@@ -39,6 +41,29 @@ void main() async {
   try {
     await AndroidAlarmManager.initialize();
     await BackgroundAlarmService().init();
+  } catch (_) {}
+
+  // Initialize background scheduler for auto-refresh & inactivity reminders
+  try {
+    final bgScheduler = BackgroundSchedulerService();
+    await bgScheduler.init();
+
+    // Schedule recurring background auto-refresh (every 12 hours)
+    // This ensures prayer schedules are always fresh even if app isn't opened
+    await bgScheduler.scheduleAutoRefresh();
+
+    // Schedule inactivity reminder (checks every 24 hours)
+    // Sends a gentle reminder if user hasn't opened app for 4+ days
+    await bgScheduler.scheduleInactivityReminder();
+
+    debugPrint('[main] Background scheduler initialized and alarms scheduled');
+  } catch (e) {
+    debugPrint('[main] Background scheduler init error: $e');
+  }
+
+  // Record that the user opened the app
+  try {
+    await PrayerCacheService.recordAppOpened();
   } catch (_) {}
 
   runApp(const RamadanApp());

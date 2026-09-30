@@ -8,6 +8,117 @@ class PrayerService {
   final http.Client client;
   PrayerService({http.Client? client}) : client = client ?? http.Client();
 
+  /// Fetch raw prayer timings (Imsak, Fajr, Dhuhr, Asr, Maghrib, Isha) for a specific date.
+  /// Returns a simple map of prayer id → time string, or null on failure.
+  /// Used for multi-day caching so the background service can schedule notifications
+  /// without the app being open.
+  Future<List<Map<String, String>>?> fetchRawPrayerTimesForDate({
+    required DateTime date,
+    String city = ApiConstants.defaultCity,
+    String country = ApiConstants.defaultCountry,
+  }) async {
+    final dateStr = DateFormat('dd-MM-yyyy').format(date);
+
+    // Try Aladhan API by Address
+    try {
+      final addressQuery = Uri.encodeComponent('$city, $country');
+      final url = Uri.parse(
+        '${ApiConstants.aladhanBaseUrl}/timingsByAddress/$dateStr?address=$addressQuery&method=${ApiConstants.kemenagMethodId}',
+      );
+
+      final response = await client.get(url).timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> body = jsonDecode(response.body);
+        if (body['code'] == 200 && body['data'] != null && body['data']['timings'] != null) {
+          return _extractRawTimings(body['data']['timings']);
+        }
+      }
+    } catch (_) {}
+
+    // Fallback: Try by City
+    try {
+      final encodedCity = Uri.encodeComponent(city);
+      final encodedCountry = Uri.encodeComponent(country);
+      final url = Uri.parse(
+        '${ApiConstants.aladhanBaseUrl}/timingsByCity/$dateStr?city=$encodedCity&country=$encodedCountry&method=${ApiConstants.kemenagMethodId}',
+      );
+
+      final response = await client.get(url).timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> body = jsonDecode(response.body);
+        if (body['code'] == 200 && body['data'] != null && body['data']['timings'] != null) {
+          return _extractRawTimings(body['data']['timings']);
+        }
+      }
+    } catch (_) {}
+
+    // Fallback: return static Jakarta defaults
+    return [
+      {'id': 'imsak', 'name': 'Imsak', 'time': '04:28'},
+      {'id': 'subuh', 'name': 'Subuh', 'time': '04:38'},
+      {'id': 'dzuhur', 'name': 'Dzuhur', 'time': '11:57'},
+      {'id': 'ashar', 'name': 'Ashar', 'time': '15:13'},
+      {'id': 'maghrib', 'name': 'Maghrib (Buka Puasa)', 'time': '18:02'},
+      {'id': 'isya', 'name': 'Isya', 'time': '19:12'},
+    ];
+  }
+
+  /// Extract raw timings from Aladhan API response into a simple list of maps.
+  List<Map<String, String>> _extractRawTimings(Map<String, dynamic> t) {
+    String cleanTime(dynamic val) {
+      if (val == null) return '00:00';
+      final str = val.toString();
+      return str.length >= 5 ? str.substring(0, 5) : str;
+    }
+
+    return [
+      {'id': 'imsak', 'name': 'Imsak', 'time': cleanTime(t['Imsak'])},
+      {'id': 'subuh', 'name': 'Subuh', 'time': cleanTime(t['Fajr'])},
+      {'id': 'dzuhur', 'name': 'Dzuhur', 'time': cleanTime(t['Dhuhr'])},
+      {'id': 'ashar', 'name': 'Ashar', 'time': cleanTime(t['Asr'])},
+      {'id': 'maghrib', 'name': 'Maghrib (Buka Puasa)', 'time': cleanTime(t['Maghrib'])},
+      {'id': 'isya', 'name': 'Isya', 'time': cleanTime(t['Isha'])},
+    ];
+  }
+
+  /// Fetch prayer times for multiple days ahead (default: 7 days).
+  /// Returns a map of date string (YYYY-MM-DD) → list of prayer maps.
+  Future<Map<String, List<Map<String, String>>>> fetchMultiDayPrayerTimes({
+    String city = ApiConstants.defaultCity,
+    String country = ApiConstants.defaultCountry,
+    int daysAhead = 7,
+  }) async {
+    final results = <String, List<Map<String, String>>>{};
+    final now = DateTime.now();
+
+    for (int i = 0; i < daysAhead; i++) {
+      final date = now.add(Duration(days: i));
+      final dateKey = '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+      try {
+        final prayers = await fetchRawPrayerTimesForDate(
+          date: date,
+          city: city,
+          country: country,
+        );
+        if (prayers != null) {
+          results[dateKey] = prayers;
+        }
+      } catch (e) {
+        // Skip this day on error, continue with others
+      }
+
+      // Small delay between requests to avoid rate limiting
+      if (i < daysAhead - 1) {
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
+    }
+
+    return results;
+  }
+
   Future<PrayerTimesData> fetchPrayerTimes({
     String city = ApiConstants.defaultCity,
     String country = ApiConstants.defaultCountry,
