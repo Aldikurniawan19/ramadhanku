@@ -5,12 +5,11 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass_back_button.dart';
 import '../../../core/widgets/shimmer_skeleton.dart';
 import '../../../core/widgets/islamic_empty_state.dart';
-import '../../../core/router/smooth_page_route.dart';
 import '../../../data/models/surah_model.dart';
 import '../../../providers/quran_provider.dart';
-import '../../quran/screens/quran_detail_screen.dart';
 import '../../quran/screens/quran_list_screen.dart';
-import '../../quran/widgets/audio_player_bar.dart';
+import '../widgets/murottal_mini_player.dart';
+import 'now_playing_screen.dart';
 
 class MurottalScreen extends StatefulWidget {
   const MurottalScreen({super.key});
@@ -20,15 +19,6 @@ class MurottalScreen extends StatefulWidget {
 }
 
 class _MurottalScreenState extends State<MurottalScreen> {
-  final List<Map<String, String>> _qariList = const [
-    {'key': '05', 'name': 'Misyari Rasyid Al-Afasi'},
-    {'key': '01', 'name': 'Abdullah Al-Juhany'},
-    {'key': '02', 'name': 'Abdul Muhsin Al-Qasim'},
-    {'key': '03', 'name': 'Abdurrahman as-Sudais'},
-    {'key': '04', 'name': 'Ibrahim Al-Dossari'},
-  ];
-
-  String _selectedQari = '05';
   String _selectedCategory = 'Semua';
   final TextEditingController _searchController = TextEditingController();
 
@@ -40,11 +30,6 @@ class _MurottalScreenState extends State<MurottalScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final qariName = _qariList.firstWhere(
-      (q) => q['key'] == _selectedQari,
-      orElse: () => _qariList.first,
-    )['name']!;
-
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: Colors.transparent,
@@ -60,7 +45,8 @@ class _MurottalScreenState extends State<MurottalScreen> {
             builder: (context, quranProv, child) {
               final isAudioActive = quranProv.isPlayingAudio ||
                   quranProv.isPlayingFullSurah ||
-                  quranProv.playingAyatNumber != null;
+                  quranProv.playingAyatNumber != null ||
+                  quranProv.playingSurah != null;
 
               final searchQuery = _searchController.text.trim().toLowerCase();
 
@@ -142,7 +128,7 @@ class _MurottalScreenState extends State<MurottalScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: InkWell(
-                          onTap: () => _showQariSelectorModal(context),
+                          onTap: () => _showQariSelectorModal(context, quranProv),
                           borderRadius: BorderRadius.circular(16),
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -188,7 +174,7 @@ class _MurottalScreenState extends State<MurottalScreen> {
                                           ),
                                         ),
                                         Text(
-                                          qariName,
+                                          quranProv.currentQariName,
                                           style: const TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.bold,
@@ -250,39 +236,27 @@ class _MurottalScreenState extends State<MurottalScreen> {
                                         },
                                       )
                                     : ListView.builder(
-                                    padding: EdgeInsets.only(
-                                      top: 4,
-                                      bottom: isAudioActive ? 90 : 24,
-                                    ),
-                                    itemCount: filteredSurah.length,
-                                    itemBuilder: (context, index) {
-                                      final surah = filteredSurah[index];
-                                      return _buildSurahAudioCard(context, surah, quranProv);
-                                    },
-                                  ),
+                                        padding: EdgeInsets.only(
+                                          top: 4,
+                                          bottom: isAudioActive ? 90 : 24,
+                                        ),
+                                        itemCount: filteredSurah.length,
+                                        itemBuilder: (context, index) {
+                                          final surah = filteredSurah[index];
+                                          return _buildSurahAudioCard(context, surah, quranProv);
+                                        },
+                                      ),
                       ),
                     ],
                   ),
 
-                  // Floating Audio Player Bar at Bottom
+                  // Floating Spotify-style Murottal Mini Player at Bottom
                   if (isAudioActive)
-                    Positioned(
-                      left: 16,
-                      right: 16,
-                      bottom: 16,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x1A000000),
-                              blurRadius: 16,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const AudioPlayerBar(),
-                      ),
+                    const Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 12,
+                      child: MurottalMiniPlayer(),
                     ),
                 ],
               );
@@ -392,16 +366,14 @@ class _MurottalScreenState extends State<MurottalScreen> {
     );
   }
 
-  /// Single Surah Audio Card Widget matching Al-Qur'an list item design
+  /// Single Surah Audio Card Widget with direct NowPlayingScreen activation
   Widget _buildSurahAudioCard(
     BuildContext context,
     SurahModel surah,
     QuranProvider quranProv,
   ) {
-    final isCurrentPlayingSurah = quranProv.currentSurah?.nomor == surah.nomor;
-    final isAudioActive = isCurrentPlayingSurah &&
-        quranProv.isPlayingFullSurah &&
-        quranProv.isPlayingAudio;
+    final isCurrentPlayingSurah = quranProv.playingSurah?.nomor == surah.nomor;
+    final isAudioActive = isCurrentPlayingSurah && quranProv.isPlayingAudio;
     final isAudioBuffering = (quranProv.loadingSurahNumber == surah.nomor ||
             (isCurrentPlayingSurah && quranProv.isPlayingFullSurah)) &&
         quranProv.isAudioLoading;
@@ -409,8 +381,6 @@ class _MurottalScreenState extends State<MurottalScreen> {
     final isMakkiyah = surah.tempatTurun.toLowerCase().contains('mekah') ||
         surah.tempatTurun.toLowerCase().contains('mekan') ||
         surah.tempatTurun.toLowerCase().contains('makki');
-
-    final audioUrl = surah.audioFull[_selectedQari] ?? surah.audioFull['05'] ?? '';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
@@ -432,19 +402,11 @@ class _MurottalScreenState extends State<MurottalScreen> {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
-          if (quranProv.currentSurah?.nomor == surah.nomor &&
-              quranProv.isPlayingFullSurah) {
-            quranProv.playFullSurahAudio(
-              audioUrl,
-              surahNumber: surah.nomor,
-            );
+          if (isCurrentPlayingSurah && quranProv.isPlayingAudio) {
+            NowPlayingScreen.show(context);
           } else {
-            quranProv.loadSurahDetail(surah.nomor).then((_) {
-              quranProv.playFullSurahAudio(
-                audioUrl,
-                surahNumber: surah.nomor,
-              );
-            });
+            quranProv.playSurahAyatPlaylist(surah.nomor, startAyatIndex: 0);
+            NowPlayingScreen.show(context);
           }
         },
         child: Padding(
@@ -547,27 +509,19 @@ class _MurottalScreenState extends State<MurottalScreen> {
               ),
               const SizedBox(width: 10),
 
-              // 5. Play / Pause Button
+              // 5. Play / Pause Action Button
               GestureDetector(
                 onTap: () {
-                  if (quranProv.currentSurah?.nomor == surah.nomor &&
-                      quranProv.isPlayingFullSurah) {
-                    quranProv.playFullSurahAudio(
-                      audioUrl,
-                      surahNumber: surah.nomor,
-                    );
+                  if (isCurrentPlayingSurah) {
+                    quranProv.togglePlayPause();
                   } else {
-                    quranProv.loadSurahDetail(surah.nomor).then((_) {
-                      quranProv.playFullSurahAudio(
-                        audioUrl,
-                        surahNumber: surah.nomor,
-                      );
-                    });
+                    quranProv.playSurahAyatPlaylist(surah.nomor, startAyatIndex: 0);
+                    NowPlayingScreen.show(context);
                   }
                 },
                 child: Container(
-                  width: 36,
-                  height: 36,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
                     color: isAudioActive || isAudioBuffering
                         ? const Color(0xFF063D2E)
@@ -600,7 +554,7 @@ class _MurottalScreenState extends State<MurottalScreen> {
     );
   }
 
-  void _showQariSelectorModal(BuildContext context) {
+  void _showQariSelectorModal(BuildContext context, QuranProvider quranProv) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -608,7 +562,7 @@ class _MurottalScreenState extends State<MurottalScreen> {
       ),
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -633,10 +587,10 @@ class _MurottalScreenState extends State<MurottalScreen> {
               const SizedBox(height: 12),
               ListView.builder(
                 shrinkWrap: true,
-                itemCount: _qariList.length,
+                itemCount: QuranProvider.qariList.length,
                 itemBuilder: (context, index) {
-                  final qari = _qariList[index];
-                  final isSelected = qari['key'] == _selectedQari;
+                  final qari = QuranProvider.qariList[index];
+                  final isSelected = qari['key'] == quranProv.selectedQari;
                   return ListTile(
                     leading: Icon(
                       Icons.record_voice_over_rounded,
@@ -662,9 +616,7 @@ class _MurottalScreenState extends State<MurottalScreen> {
                           )
                         : null,
                     onTap: () {
-                      setState(() {
-                        _selectedQari = qari['key']!;
-                      });
+                      quranProv.setSelectedQari(qari['key']!);
                       Navigator.pop(context);
                     },
                   );

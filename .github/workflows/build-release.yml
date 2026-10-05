@@ -106,9 +106,12 @@ jobs:
             ✨ **Pembaruan Ramadhan App ${{ github.ref_name }}**
 
             Pembaruan terbaru untuk mendukung kenyamanan ibadah Anda:
-            • 🧭 **Fitur AR Arah Kiblat**: Penunjuk arah kiblat berbasis kamera Augmented Reality interaktif saat perangkat ditegakkan
-            • 🔄 **Fitur In-App Update**: Notifikasi dan pemasangan pembaruan otomatis langsung dari dalam aplikasi
-            • 🚀 **Optimalisasi Performa**: Peningkatan stabilitas, perbaikan bug, dan navigasi yang lebih responsif
+            **Pembaruan Pemutar Murottal Al-Qur'an**:
+              • Tampilan baru pemutar murottal yang lebih modern, bersih, dan nyaman dibaca.
+              • Sinkronisasi teks ayat & highlight kata per kata secara real-time.
+              • Tombol Next & Previous untuk berpindah antar surat dengan cepat.
+              • Progress bar durasi penuh satu surat dan opsi ganti Qari yang lebih praktis.
+              • Animasi transisi membuka dan menutup pemutar yang lebih halus.
           files: build/RamadhanApp-release.apk
           draft: false
           prerelease: false
