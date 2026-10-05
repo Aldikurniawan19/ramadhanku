@@ -377,7 +377,7 @@ class ProfilScreen extends StatelessWidget {
                             FutureBuilder<PackageInfo>(
                               future: PackageInfo.fromPlatform(),
                               builder: (context, snapshot) {
-                                final version = snapshot.data?.version ?? '2.2.0';
+                                final version = snapshot.data?.version ?? '2.3.0';
                                 return Text(
                                   'Jadwal Sholat & Al-Qur\'an v$version',
                                   style: const TextStyle(

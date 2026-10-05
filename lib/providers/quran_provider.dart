@@ -21,10 +21,6 @@ class QuranProvider extends ChangeNotifier {
 
   static const List<Map<String, String>> qariList = [
     {'key': '05', 'name': 'Misyari Rasyid Al-Afasi'},
-    {'key': '01', 'name': 'Abdullah Al-Juhany'},
-    {'key': '02', 'name': 'Abdul Muhsin Al-Qasim'},
-    {'key': '03', 'name': 'Abdurrahman as-Sudais'},
-    {'key': '04', 'name': 'Ibrahim Al-Dossari'},
     {'key': '06', 'name': 'Yasser Al-Dosari'},
   ];
 
@@ -202,7 +198,11 @@ class QuranProvider extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final savedQari = prefs.getString('murottal_selected_qari');
       if (savedQari != null && savedQari.isNotEmpty) {
-        _selectedQari = savedQari;
+        final isValid = qariList.any((q) => q['key'] == savedQari);
+        _selectedQari = isValid ? savedQari : '05';
+        if (!isValid) {
+          await prefs.setString('murottal_selected_qari', '05');
+        }
         notifyListeners();
       }
     } catch (_) {}
@@ -355,7 +355,7 @@ class QuranProvider extends ChangeNotifier {
           timingData: _currentSurahTiming,
           ayatNumber: currentAyat.nomorAyat,
           positionMs: pos.inMilliseconds,
-          totalWords: words.length,
+          words: words,
           verseTotalDuration: _audioPlayer.duration ?? Duration.zero,
         );
 

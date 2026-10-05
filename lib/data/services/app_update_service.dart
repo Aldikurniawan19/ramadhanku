@@ -54,7 +54,7 @@ class AppUpdateService {
   }) async {
     try {
       // 1. Get current installed version
-      String currentVersion = '2.2.0';
+      String currentVersion = '2.3.0';
       try {
         final packageInfo = await PackageInfo.fromPlatform();
         currentVersion = packageInfo.version;

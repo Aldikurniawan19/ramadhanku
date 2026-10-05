@@ -189,26 +189,26 @@ class _AyatLyricCardState extends State<AyatLyricCard> {
           final isPassedWord = (widget.activeWordIndex > oneBasedIdx);
 
           return AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 180),
+            duration: const Duration(milliseconds: 140),
             curve: Curves.easeOutCubic,
             style: GoogleFonts.amiri(
-              fontSize: isCurrentWord ? 31 : 29,
+              fontSize: 29,
               height: 2.0,
               fontWeight: FontWeight.bold,
               color: isCurrentWord
-                  ? const Color(0xFFFFDF7A) // Spotify Luminous Gold for active word
+                  ? const Color(0xFFFFDF7A) // Luminous Gold for active word
                   : (isPassedWord
                       ? Colors.white
                       : Colors.white.withOpacity(0.85)),
               shadows: isCurrentWord
                   ? [
                       BoxShadow(
-                        color: const Color(0xFFFFD54F).withOpacity(0.65),
-                        blurRadius: 16,
+                        color: const Color(0xFFFFD54F).withOpacity(0.75),
+                        blurRadius: 18,
                         spreadRadius: 2,
                       ),
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.4),
+                        color: Colors.black.withOpacity(0.45),
                         blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),

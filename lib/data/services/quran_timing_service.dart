@@ -92,13 +92,9 @@ class QuranTimingService {
   final http.Client _client = http.Client();
   final Map<String, SurahTimingData> _memoryCache = {};
 
-  // Maps local Qari keys ('05', '03', etc.) to Quran.com chapter reciter IDs
+  // Maps local Qari keys ('05', '06') to Quran.com chapter reciter IDs
   static const Map<String, int> _qariReciterMap = {
     '05': 7, // Mishari Rashid Alafasy
-    '03': 3, // Abdur-Rahman as-Sudais
-    '01': 7, // Abdullah Al-Juhany (Fallback to high-precision Mishari timings)
-    '02': 7, // Abdul Muhsin Al-Qasim
-    '04': 7, // Ibrahim Al-Dossari
     '06': 7, // Yasser Al-Dosari
   };
 
@@ -221,42 +217,101 @@ class QuranTimingService {
   }
 
   /// Calculates the 1-based active word index for [ayatNumber] given the [positionMs].
-  /// If segments data is available, returns exact segment word index.
-  /// Otherwise, falls back to proportional word timing based on word count.
+  /// Accurately synchronized with Qari recitation using duration-scaling and syllable-weighting.
   int getActiveWordIndex({
     required SurahTimingData? timingData,
     required int ayatNumber,
     required int positionMs,
-    required int totalWords,
+    required List<String> words,
     required Duration verseTotalDuration,
   }) {
+    final totalWords = words.length;
     if (totalWords <= 0) return 1;
 
+    // 1. Precise Segment-Based Synchronization (Quran.com API Timestamps with Dynamic Audio Scaling)
     if (timingData != null && timingData.verseSegments.containsKey(ayatNumber)) {
       final segments = timingData.verseSegments[ayatNumber]!;
       if (segments.isNotEmpty) {
-        for (final seg in segments) {
-          if (positionMs >= seg.startMs && positionMs <= seg.endMs) {
-            return seg.wordIndex.clamp(1, totalWords);
+        final segDuration = timingData.verseDurations[ayatNumber]?.inMilliseconds ??
+            (segments.last.endMs > 0 ? segments.last.endMs : 5000);
+        final actualDuration = verseTotalDuration.inMilliseconds > 0
+            ? verseTotalDuration.inMilliseconds
+            : segDuration;
+
+        final double scaleRatio = segDuration > 0
+            ? (actualDuration / segDuration)
+            : 1.0;
+
+        for (int i = 0; i < segments.length; i++) {
+          final seg = segments[i];
+          final startScaled = (seg.startMs * scaleRatio).round();
+          final endScaled = (seg.endMs * scaleRatio).round();
+
+          if (positionMs >= startScaled && positionMs <= endScaled) {
+            if (segments.length == totalWords) {
+              return (i + 1).clamp(1, totalWords);
+            }
+            final mappedWordIdx = ((i / segments.length) * totalWords).floor() + 1;
+            return mappedWordIdx.clamp(1, totalWords);
           }
         }
-        // If between segments, return the most recent active word
+
+        // Past last segment
+        if (positionMs >= (segments.last.startMs * scaleRatio).round()) {
+          return totalWords;
+        }
+
+        // Intermediate silence or minor gap: match closest previous segment
         for (int i = segments.length - 1; i >= 0; i--) {
-          if (positionMs >= segments[i].startMs) {
-            return segments[i].wordIndex.clamp(1, totalWords);
+          if (positionMs >= (segments[i].startMs * scaleRatio).round()) {
+            final mapped = ((i / segments.length) * totalWords).floor() + 1;
+            return mapped.clamp(1, totalWords);
           }
         }
         return 1;
       }
     }
 
-    // Proportional fallback (Smooth word tracking across duration)
+    // 2. Tajwid & Syllable-Weighted Fallback (Accounts for Madd, Shaddah, and Long Vowels)
     final totalMs = verseTotalDuration.inMilliseconds > 0
         ? verseTotalDuration.inMilliseconds
-        : 5000;
-    final progress = (positionMs / totalMs).clamp(0.0, 0.999);
-    final calculatedIndex = (progress * totalWords).floor() + 1;
-    return calculatedIndex.clamp(1, totalWords);
+        : (totalWords * 900);
+
+    final weights = <double>[];
+    double totalWeight = 0;
+
+    for (final word in words) {
+      double weight = word.length.toDouble();
+      for (final char in word.runes) {
+        final c = String.fromCharCode(char);
+        if (c == 'ٓ' || c == '~' || c == 'ٰ' || c == 'ۥ' || c == 'ۦ') {
+          weight += 4.0; // Madd / Long pronunciation
+        } else if (c == 'ّ') {
+          weight += 2.0; // Shaddah / Double consonant
+        } else if (c == 'ا' || c == 'و' || c == 'ي') {
+          weight += 1.5; // Huruf Illat / Madd Asli
+        }
+      }
+      if (weight < 2.0) weight = 2.0;
+      weights.add(weight);
+      totalWeight += weight;
+    }
+
+    if (totalWeight <= 0) return 1;
+
+    final effectivePos = (positionMs - 120).clamp(0, totalMs);
+    final currentFraction = (effectivePos / totalMs).clamp(0.0, 0.999);
+    final targetWeightProgress = currentFraction * totalWeight;
+
+    double accumulatedWeight = 0;
+    for (int i = 0; i < weights.length; i++) {
+      accumulatedWeight += weights[i];
+      if (targetWeightProgress <= accumulatedWeight || i == weights.length - 1) {
+        return (i + 1).clamp(1, totalWords);
+      }
+    }
+
+    return 1;
   }
 
   /// Helper to format duration to mm:ss or hh:mm:ss

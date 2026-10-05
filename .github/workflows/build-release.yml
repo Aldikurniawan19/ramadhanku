@@ -108,9 +108,10 @@ jobs:
             Pembaruan terbaru untuk mendukung kenyamanan ibadah Anda:
             **Pembaruan Pemutar Murottal Al-Qur'an**:
               • Tampilan baru pemutar murottal yang lebih modern, bersih, dan nyaman dibaca.
-              • Sinkronisasi teks ayat & highlight kata per kata secara real-time.
+              • Sinkronisasi teks ayat & highlight kata per kata secara real-time yang lebih presisi dan akurat mengikuti tempo bacaan.
+              • Pilihan qari terfokus: Misyari Rasyid Al-Afasi & Yasser Al-Dosari.
               • Tombol Next & Previous untuk berpindah antar surat dengan cepat.
-              • Progress bar durasi penuh satu surat dan opsi ganti Qari yang lebih praktis.
+              • Progress bar durasi penuh satu surat dan kendali audio yang lebih praktis.
               • Animasi transisi membuka dan menutup pemutar yang lebih halus.
           files: build/RamadhanApp-release.apk
           draft: false
