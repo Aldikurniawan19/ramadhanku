@@ -42,6 +42,7 @@ coverage/
 **/android/key.properties
 *.jks
 *.keystore
+!**/app-release.keystore
 *.p12
 *.pem
 

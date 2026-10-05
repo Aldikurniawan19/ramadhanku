@@ -32,9 +32,26 @@ android {
         setProperty("archivesBaseName", "RamadhanApp")
     }
 
+    signingConfigs {
+        create("release") {
+            val keystoreFile = file("app-release.keystore")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = "ramadhan2026"
+                keyAlias = "ramadhanapp"
+                keyPassword = "ramadhan2026"
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            val keystoreFile = file("app-release.keystore")
+            signingConfig = if (keystoreFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             // Keep notification plugin classes from being stripped by R8
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

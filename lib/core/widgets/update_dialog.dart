@@ -604,7 +604,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
     return Column(
       key: const ValueKey('installing_view'),
       children: [
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(16),
           decoration: const BoxDecoration(
@@ -614,10 +614,10 @@ class _UpdateDialogState extends State<UpdateDialog> {
           child: const Icon(
             Icons.check_circle_rounded,
             color: AppColors.primary,
-            size: 44,
+            size: 40,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         Text(
           'Unduhan Selesai!',
           style: GoogleFonts.plusJakartaSans(
@@ -635,7 +635,37 @@ class _UpdateDialogState extends State<UpdateDialog> {
             fontSize: 12.5,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.amber.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.amber.shade300),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                size: 18,
+                color: Colors.amber.shade900,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Catatan: Jika muncul keterangan paket bentrok, silakan uninstall aplikasi versi lama terlebih dahulu sebelum memasang pembaruan ini.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: Colors.amber.shade900,
+                    fontSize: 11.5,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
       ],
     );
   }
