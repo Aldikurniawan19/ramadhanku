@@ -3,8 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/modern_snack_bar.dart';
+import '../../../core/widgets/update_dialog.dart';
+import '../../../data/services/app_update_service.dart';
 import '../../../data/services/firebase_service.dart';
 import '../../../data/services/location_service.dart';
 import '../../../providers/prayer_provider.dart';
@@ -320,6 +323,17 @@ class ProfilScreen extends StatelessWidget {
                                 height: 1,
                                 color: AppColors.cardBorder,
                               ),
+                              _buildMenuItem(
+                                context,
+                                icon: Icons.system_update_rounded,
+                                title: 'Pembaruan Aplikasi',
+                                subtitle: 'Periksa ketersediaan versi terbaru aplikasi',
+                                onTap: () => _handleCheckUpdate(context),
+                              ),
+                              const Divider(
+                                height: 1,
+                                color: AppColors.cardBorder,
+                              ),
                               // Tombol Keluar Akun (Hanya muncul jika pengguna sudah login)
                               if (isLoggedIn)
                                 _buildMenuItem(
@@ -358,17 +372,23 @@ class ProfilScreen extends StatelessWidget {
                         const SizedBox(height: 28),
 
                         // App Version & Copyright Footer
-                        const Column(
+                        Column(
                           children: [
-                            Text(
-                              'Jadwal Sholat & Al-Qur\'an v2.0.0',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textMuted,
-                              ),
+                            FutureBuilder<PackageInfo>(
+                              future: PackageInfo.fromPlatform(),
+                              builder: (context, snapshot) {
+                                final version = snapshot.data?.version ?? '2.1.0';
+                                return Text(
+                                  'Jadwal Sholat & Al-Qur\'an v$version',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textMuted,
+                                  ),
+                                );
+                              },
                             ),
-                            SizedBox(height: 4),
+                            const SizedBox(height: 4),
                             Text(
                               'Copyright © 2026 by Aldi Kurniawan',
                               style: TextStyle(
@@ -398,6 +418,89 @@ class ProfilScreen extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _handleCheckUpdate(BuildContext context) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.12),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                ),
+              ),
+              SizedBox(width: 16),
+              Flexible(
+                child: Text(
+                  'Memeriksa pembaruan...',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final updateInfo = await AppUpdateService.checkForUpdate(checkSkipped: false);
+
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      if (!context.mounted) return;
+
+      if (updateInfo != null && updateInfo.isUpdateAvailable) {
+        UpdateDialog.show(context, updateInfo: updateInfo);
+      } else if (updateInfo != null && !updateInfo.isUpdateAvailable) {
+        ModernSnackBar.show(
+          context,
+          message: 'Aplikasi sudah menggunakan versi terbaru (v${updateInfo.currentVersion}).',
+          type: SnackBarType.success,
+        );
+      } else {
+        ModernSnackBar.show(
+          context,
+          message: 'Tidak dapat memeriksa pembaruan. Pastikan internet aktif.',
+          type: SnackBarType.error,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        ModernSnackBar.show(
+          context,
+          message: 'Gagal memeriksa pembaruan: $e',
+          type: SnackBarType.error,
+        );
+      }
+    }
   }
 
   Widget _buildMenuItem(
