@@ -2,15 +2,15 @@
 # GitHub Actions: Build & Release APK
 #
 # Workflow ini otomatis:
-#   1. Build APK release setiap push ke branch 'main'
-#   2. Upload APK sebagai artifact (bisa didownload dari Actions tab)
-#   3. Buat GitHub Release otomatis dengan APK jika ada tag versi
+#   1. Build APK release setiap push ke branch 'main' / 'master'
+#   2. Upload APK sebagai artifact di GitHub Actions tab
+#   3. Otomatis membuat GitHub Release & melampirkan file APK jika push tag versi (misal: v2.3.0)
 #
-# Cara trigger Release:
-#   git tag v2.0.0
-#   git push origin v2.0.0
+# Cara trigger Release otomatis:
+#   git tag v2.3.0
+#   git push origin v2.3.0
 #
-# Atau cukup push ke main → APK tersedia di Actions tab
+# Atau trigger manual melalui tab 'Actions' -> 'Build & Release APK' -> 'Run workflow'
 # =====================================================================
 
 name: Build & Release APK
@@ -19,24 +19,26 @@ on:
   push:
     branches: [main, master]
     tags:
-      - "v*" # Trigger release saat push tag seperti v1.0.0, v2.0.0
+      - "v*" # Trigger release saat push tag seperti v2.3.0, v2.3.1
   pull_request:
     branches: [main, master]
-  workflow_dispatch: # Bisa di-trigger manual dari GitHub UI
+  workflow_dispatch: # Trigger manual dari GitHub UI
 
 jobs:
   build:
-    name: Build APK
+    name: Build & Release APK
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Diperlukan agar bisa membuat GitHub Release & upload APK
+      contents: write # Diperlukan agar bisa membuat GitHub Release & upload file APK
 
     steps:
       # 1. Checkout source code
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # 2. Setup Java 17 (required for Android/Gradle)
+      # 2. Setup Java 17 (required for Android Gradle Plugin)
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
@@ -44,15 +46,14 @@ jobs:
           java-version: "17"
           cache: "gradle"
 
-      # 3. Setup Flutter
+      # 3. Setup Flutter SDK (Stable Channel)
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.41.1"
           channel: "stable"
           cache: true
 
-      # 4. Tampilkan info environment (untuk debugging)
+      # 4. Tampilkan info environment
       - name: Flutter Doctor
         run: flutter doctor -v
 
@@ -60,7 +61,7 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # 6. Analisis kode (opsional, bisa dimatikan jika terlalu ketat)
+      # 6. Analisis kode
       - name: Analyze code
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
         continue-on-error: true
@@ -70,33 +71,35 @@ jobs:
         run: flutter build apk --release
 
       # 8. Rename APK agar mudah dikenali
-      - name: Rename APK
+      - name: Prepare Release Artifacts
         run: |
-          APK_PATH=$(find build/app/outputs -name "*.apk" -type f | head -1)
-          if [ -n "$APK_PATH" ]; then
-            cp "$APK_PATH" build/RamadhanApp-release.apk
-            echo "APK_FILE=build/RamadhanApp-release.apk" >> $GITHUB_ENV
-            echo "APK found and copied: $APK_PATH"
-          else
-            echo "APK not found in standard path, searching..."
-            find build -name "*.apk" -type f
-            # Fallback: coba flutter-apk path
-            if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
-              cp build/app/outputs/flutter-apk/app-release.apk build/RamadhanApp-release.apk
-              echo "APK_FILE=build/RamadhanApp-release.apk" >> $GITHUB_ENV
-            fi
+          mkdir -p dist
+          APK_PATH=$(find build/app/outputs/flutter-apk -name "app-release.apk" -type f | head -1)
+          if [ -z "$APK_PATH" ]; then
+            APK_PATH=$(find build -name "*.apk" -type f | head -1)
           fi
+          
+          TAG_NAME="${{ github.ref_name }}"
+          if [ -z "$TAG_NAME" ] || [[ "$TAG_NAME" != v* ]]; then
+            TAG_NAME="v2.3.0"
+          fi
+          
+          FINAL_APK_NAME="RamadhanApp-${TAG_NAME}.apk"
+          cp "$APK_PATH" "dist/${FINAL_APK_NAME}"
+          cp "$APK_PATH" "dist/RamadhanApp-release.apk"
+          echo "RELEASE_APK=dist/${FINAL_APK_NAME}" >> $GITHUB_ENV
+          echo "APK successfully prepared at dist/${FINAL_APK_NAME}"
 
-      # 9. Upload APK sebagai artifact (selalu tersedia di Actions tab)
+      # 9. Upload APK sebagai Artifact (tersedia di tab Actions)
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: RamadhanApp-APK
-          path: build/RamadhanApp-release.apk
+          path: dist/*.apk
           if-no-files-found: warn
           retention-days: 90
 
-      # 10. Buat GitHub Release (hanya saat push tag v*)
+      # 10. Buat GitHub Release (otomatis saat push tag v*)
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
@@ -105,16 +108,17 @@ jobs:
           body: |
             ✨ **Pembaruan Ramadhan App ${{ github.ref_name }}**
 
-            Pembaruan terbaru untuk mendukung kenyamanan ibadah Anda:
-            **Pembaruan Pemutar Murottal Al-Qur'an**:
-              • Tampilan baru pemutar murottal yang lebih modern, bersih, dan nyaman dibaca.
-              • Sinkronisasi teks ayat & highlight kata per kata secara real-time yang lebih presisi dan akurat mengikuti tempo bacaan.
-              • Pilihan qari terfokus: Misyari Rasyid Al-Afasi & Yasser Al-Dosari.
-              • Tombol Next & Previous untuk berpindah antar surat dengan cepat.
-              • Progress bar durasi penuh satu surat dan kendali audio yang lebih praktis.
-              • Animasi transisi membuka dan menutup pemutar yang lebih halus.
-          files: build/RamadhanApp-release.apk
+            ### 🌅 Fitur & Pembaruan Terbaru:
+            - **Latar Langit Realistis & Dinamis**: Pemandangan langit bernyawa 60/120 FPS dengan 8 palet waktu (Subuh, Terbit, Dhuha, Dzuhur, Ashar, Maghrib, Isya, Malam).
+            - **Desain Matahari & Bulan Realistis**: Inti pijar matahari putih menyala (*incandescent core*) dengan pendaran *Gaussian bloom*, serta bulan perak bertekstur kawah di malam hari.
+            - **Animasi Burung Sore Hari**: Formasi kawanan burung terbang melintasi matahari sore (16:00 hingga matahari tenggelam).
+            - **Awan Tenang & Dinamis**: Dinamika awan lembut bergantian dengan ritme pergerakan yang tenang dan alami.
+            - **Gelombang Laut & Refleksi Matahari**: Simulasi air 3D dengan pantulan pendar matahari dan kilau lembut.
+            - **Pemutar Murottal Al-Qur'an**: Sinkronisasi ayat & highlight kata per kata secara real-time dengan pilihan qari terbaik.
+          files: |
+            dist/*.apk
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

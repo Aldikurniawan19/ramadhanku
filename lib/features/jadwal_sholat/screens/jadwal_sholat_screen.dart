@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass_back_button.dart';
 import '../../../providers/prayer_provider.dart';
 import '../../main_navigation_screen.dart';
+import '../widgets/realistic_sky_background.dart';
 
 class JadwalSholatScreen extends StatefulWidget {
   const JadwalSholatScreen({super.key});
@@ -114,22 +115,23 @@ class _JadwalSholatScreenState extends State<JadwalSholatScreen> {
             displayPrayers = _getFallbackPrayers();
           }
 
-          // Subuh, Terbit & Terbenam times (from API data or default)
+          // Subuh, Terbit, Dzuhur, Ashar, Terbenam & Isya times (from API data or default)
           String subuhTime = '04:38';
           String terbitTime = '05:58';
+          String dzuhurTime = '11:58';
+          String asharTime = '15:15';
           String terbenamTime = '18:07';
-          if (data != null) {
-            final maghribItem = data.prayers.firstWhere(
-              (p) => p.id.toLowerCase().contains('maghrib'),
-              orElse: () => data.prayers.first,
-            );
-            terbenamTime = maghribItem.time;
+          String isyaTime = '19:18';
 
-            final subuhItem = data.prayers.firstWhere(
-              (p) => p.id.toLowerCase().contains('subuh'),
-              orElse: () => data.prayers.first,
-            );
-            subuhTime = subuhItem.time;
+          if (data != null && data.prayers.isNotEmpty) {
+            for (final p in data.prayers) {
+              final pid = p.id.toLowerCase();
+              if (pid.contains('subuh') || pid.contains('fajr')) subuhTime = p.time;
+              if (pid.contains('dzuhur') || pid.contains('dhuhr')) dzuhurTime = p.time;
+              if (pid.contains('ashar') || pid.contains('asr')) asharTime = p.time;
+              if (pid.contains('maghrib')) terbenamTime = p.time;
+              if (pid.contains('isya') || pid.contains('isha')) isyaTime = p.time;
+            }
           }
 
           return LayoutBuilder(
@@ -161,7 +163,10 @@ class _JadwalSholatScreenState extends State<JadwalSholatScreen> {
                           city,
                           subuhTime,
                           terbitTime,
+                          dzuhurTime,
+                          asharTime,
                           terbenamTime,
+                          isyaTime,
                           prayerProv,
                         ),
                       ),
@@ -216,7 +221,10 @@ class _JadwalSholatScreenState extends State<JadwalSholatScreen> {
                         city,
                         subuhTime,
                         terbitTime,
+                        dzuhurTime,
+                        asharTime,
                         terbenamTime,
+                        isyaTime,
                         prayerProv,
                       ),
                     ),
@@ -376,310 +384,86 @@ class _JadwalSholatScreenState extends State<JadwalSholatScreen> {
     String city,
     String subuhTime,
     String terbitTime,
+    String dzuhurTime,
+    String asharTime,
     String terbenamTime,
+    String isyaTime,
     PrayerProvider prayerProv,
   ) {
-    final currentHour = DateTime.now().hour;
-    final isDayTime = currentHour >= 6 && currentHour < 18;
-    final bgImagePath = isDayTime
-        ? 'assets/images/sholatSiang.png'
-        : 'assets/images/sholatMalam.png';
-
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF0D2834), Color(0xFF184955)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+    return RealisticSkyBackground(
+      subuhTime: subuhTime,
+      terbitTime: terbitTime,
+      dzuhurTime: dzuhurTime,
+      asharTime: asharTime,
+      maghribTime: terbenamTime,
+      isyaTime: isyaTime,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top Navigation Bar
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const GlassBackButton(),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Jadwal Sholat',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black87,
+                              offset: Offset(0, 1),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            city,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black54,
+                                  offset: Offset(0, 1),
+                                  blurRadius: 3,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.location_on_rounded,
+                            size: 13,
+                            color: Colors.white,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 46),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
-      child: Stack(
-        children: [
-          // Background Image (Dynamic Day / Night Header Background)
-          Positioned.fill(
-            child: Image.asset(
-              bgImagePath,
-              fit: BoxFit.cover,
-              alignment: Alignment.center,
-              errorBuilder: (context, error, stackTrace) =>
-                  const SizedBox.shrink(),
-            ),
-          ),
-
-          // Header Content
-          Padding(
-            padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top + 4,
-              left: 16,
-              right: 16,
-              bottom: 24, // breathing space above the card overlap
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Top Navigation Bar
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const GlassBackButton(),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          'Jadwal Sholat',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black54,
-                                offset: Offset(0, 1),
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              city,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white70,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(
-                              Icons.location_on_outlined,
-                              size: 13,
-                              color: Colors.white70,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 46),
-                  ],
-                ),
-
-                // Fixed-height Celestial Arc Trajectory (Sun / Moon Path)
-                // Positioned above the mosque minarets and domes in the background illustration
-                SizedBox(
-                  height: 160.0,
-                  width: double.infinity,
-                  child: Builder(
-                    builder: (context) {
-                      final progress = _calculateCelestialProgress(
-                        terbitTime,
-                        terbenamTime,
-                        isDayTime,
-                      );
-
-                      final leftLabelTime = isDayTime
-                          ? terbitTime
-                          : terbenamTime;
-                      final leftLabelName = isDayTime ? 'Terbit' : 'Terbenam';
-                      final rightLabelTime = isDayTime
-                          ? terbenamTime
-                          : subuhTime;
-                      final rightLabelName = isDayTime ? 'Terbenam' : 'Subuh';
-
-                      return CustomPaint(
-                        painter: _SunArcPainter(
-                          progress: progress,
-                          isDaytime: isDayTime,
-                        ),
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            // Left Info Badge (Terbit at Day / Terbenam at Night)
-                            Positioned(
-                              left: 8,
-                              bottom: -18,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 9,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.38),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.20),
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          isDayTime
-                                              ? Icons.wb_sunny_rounded
-                                              : Icons.nights_stay_rounded,
-                                          color: isDayTime
-                                              ? const Color(0xFFFFD54F)
-                                              : const Color(0xFF81D4FA),
-                                          size: 12,
-                                        ),
-                                        const SizedBox(width: 3),
-                                        Text(
-                                          leftLabelName,
-                                          style: const TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w500,
-                                            color: Colors.white70,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 1),
-                                    Text(
-                                      leftLabelTime,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            // Right Info Badge (Terbenam at Day / Subuh at Night)
-                            Positioned(
-                              right: 8,
-                              bottom: -18,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 9,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.38),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.20),
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          rightLabelName,
-                                          style: const TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w500,
-                                            color: Colors.white70,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 3),
-                                        Icon(
-                                          isDayTime
-                                              ? Icons.nights_stay_rounded
-                                              : Icons.wb_sunny_rounded,
-                                          color: isDayTime
-                                              ? const Color(0xFF81D4FA)
-                                              : const Color(0xFFFFD54F),
-                                          size: 12,
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 1),
-                                    Text(
-                                      rightLabelTime,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                // Lifter margin to shift the entire celestial arc component ABOVE the mosques
-                const SizedBox(height: 60.0),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
-  }
-
-  double _calculateCelestialProgress(
-    String terbitStr,
-    String terbenamStr,
-    bool isDayTime,
-  ) {
-    try {
-      final now = DateTime.now();
-
-      int parseHour(String time) => int.parse(time.split(':')[0]);
-      int parseMinute(String time) => int.parse(time.split(':')[1]);
-
-      final terbitTime = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        parseHour(terbitStr),
-        parseMinute(terbitStr),
-      );
-      final terbenamTime = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        parseHour(terbenamStr),
-        parseMinute(terbenamStr),
-      );
-
-      if (isDayTime) {
-        // Daytime (06:00 -> 18:00): Sun moves from Left (Terbit) to Right (Terbenam)
-        if (now.isBefore(terbitTime)) return 0.05;
-        if (now.isAfter(terbenamTime)) return 0.95;
-        final totalSeconds = terbenamTime.difference(terbitTime).inSeconds;
-        if (totalSeconds <= 0) return 0.5;
-        final elapsedSeconds = now.difference(terbitTime).inSeconds;
-        return (elapsedSeconds / totalSeconds).clamp(0.05, 0.95);
-      } else {
-        // Nighttime (18:00 -> 06:00): Moon resets to LEFT at 18:00 and moves to Right until 06:00 AM
-        DateTime nightStart = terbenamTime;
-        DateTime nightEnd = terbitTime.add(const Duration(days: 1));
-
-        if (now.isBefore(terbenamTime)) {
-          // Early morning before 06:00 AM (e.g. 03:00 AM)
-          nightStart = terbenamTime.subtract(const Duration(days: 1));
-          nightEnd = terbitTime;
-        }
-
-        final totalSeconds = nightEnd.difference(nightStart).inSeconds;
-        if (totalSeconds <= 0) return 0.5;
-        final elapsedSeconds = now.difference(nightStart).inSeconds;
-        return (elapsedSeconds / totalSeconds).clamp(0.05, 0.95);
-      }
-    } catch (_) {
-      return 0.5;
-    }
   }
 
   Widget _buildBottomCountdownCard({
@@ -804,216 +588,5 @@ class _JadwalSholatScreenState extends State<JadwalSholatScreen> {
       },
       {'id': 'isya', 'name': 'Isya', 'time': '19:18', 'isHighlight': false},
     ];
-  }
-}
-
-// Premium Glowing Arc Trajectory Painter for Sun & Moon Celestial Path
-class _SunArcPainter extends CustomPainter {
-  final double progress;
-  final bool isDaytime;
-
-  _SunArcPainter({required this.progress, this.isDaytime = true});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Natural celestial arch positioned above the mosque minarets and domes
-    final p0 = Offset(32, size.height - 20);
-    final p1 = Offset(size.width / 2, 0.0);
-    final p2 = Offset(size.width - 32, size.height - 20);
-
-    final path = Path();
-    path.moveTo(p0.dx, p0.dy);
-    path.quadraticBezierTo(p1.dx, p1.dy, p2.dx, p2.dy);
-
-    // 1. Base Dashed Track Curve
-    final baseTrackPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.28)
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke;
-
-    final pathMetrics = path.computeMetrics();
-
-    for (final metric in pathMetrics) {
-      const dashWidth = 6.0;
-      const dashSpace = 4.0;
-      double distance = 0.0;
-      while (distance < metric.length) {
-        canvas.drawPath(
-          metric.extractPath(
-            distance,
-            math.min(distance + dashWidth, metric.length),
-          ),
-          baseTrackPaint,
-        );
-        distance += dashWidth + dashSpace;
-      }
-
-      // 2. Active Illuminated Trajectory Glow Line (0 -> progress)
-      final activeLength = metric.length * progress.clamp(0.05, 0.95);
-      final activePath = metric.extractPath(0, activeLength);
-
-      final activeGlowPaint = Paint()
-        ..shader = LinearGradient(
-          colors: isDaytime
-              ? const [Color(0xFFFFD54F), Color(0xFFFF9800)]
-              : const [Color(0xFF81D4FA), Color(0xFFE0F7FA)],
-        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
-        ..strokeWidth = 2.6
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
-
-      canvas.drawPath(activePath, activeGlowPaint);
-    }
-
-    // 3. Dynamic position (x, y) along quadratic Bezier curve
-    final t = progress.clamp(0.05, 0.95);
-    final oneMinusT = 1.0 - t;
-    final x =
-        oneMinusT * oneMinusT * p0.dx +
-        2 * oneMinusT * t * p1.dx +
-        t * t * p2.dx;
-    final y =
-        oneMinusT * oneMinusT * p0.dy +
-        2 * oneMinusT * t * p1.dy +
-        t * t * p2.dy;
-    final nodeOffset = Offset(x, y);
-
-    if (isDaytime) {
-      // --- DAYTIME: Premium Glowing 3D Sun ---
-      // a. Ambient Outer Radial Aura Glow
-      final auraPaint = Paint()
-        ..shader = RadialGradient(
-          colors: [
-            const Color(0xFFFFD54F).withValues(alpha: 0.50),
-            const Color(0xFFFF9800).withValues(alpha: 0.15),
-            Colors.transparent,
-          ],
-          stops: const [0.0, 0.6, 1.0],
-        ).createShader(Rect.fromCircle(center: nodeOffset, radius: 20));
-      canvas.drawCircle(nodeOffset, 20, auraPaint);
-
-      // b. Pulse Ring Frame
-      final pulseRingPaint = Paint()
-        ..color = const Color(0xFFFFD54F).withValues(alpha: 0.65)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5;
-      canvas.drawCircle(nodeOffset, 12.5, pulseRingPaint);
-
-      // c. Sun Rays (12 Radial Coronas)
-      final rayPaint = Paint()
-        ..color = const Color(0xFFFFE082)
-        ..strokeWidth = 1.8
-        ..strokeCap = StrokeCap.round;
-
-      for (int i = 0; i < 12; i++) {
-        final angle = i * (math.pi / 6);
-        const rStart = 9.0;
-        final rEnd = (i % 2 == 0) ? 13.5 : 11.5;
-        final start = Offset(
-          nodeOffset.dx + rStart * math.cos(angle),
-          nodeOffset.dy + rStart * math.sin(angle),
-        );
-        final end = Offset(
-          nodeOffset.dx + rEnd * math.cos(angle),
-          nodeOffset.dy + rEnd * math.sin(angle),
-        );
-        canvas.drawLine(start, end, rayPaint);
-      }
-
-      // d. Solid Core Sphere with 3D Radial Gradient Fill
-      final sunCorePaint = Paint()
-        ..shader = RadialGradient(
-          center: const Alignment(-0.35, -0.35),
-          colors: const [
-            Color(0xFFFFF59D),
-            Color(0xFFFFD54F),
-            Color(0xFFFF9800),
-          ],
-        ).createShader(Rect.fromCircle(center: nodeOffset, radius: 7.5));
-      canvas.drawCircle(nodeOffset, 7.5, sunCorePaint);
-    } else {
-      // --- NIGHTTIME: Premium Glowing Crescent Moon & Twinkling Star ---
-      // a. Ambient Outer Radial Aura Glow
-      final auraPaint = Paint()
-        ..shader = RadialGradient(
-          colors: [
-            const Color(0xFF81D4FA).withValues(alpha: 0.45),
-            const Color(0xFF4FC3F7).withValues(alpha: 0.12),
-            Colors.transparent,
-          ],
-          stops: const [0.0, 0.6, 1.0],
-        ).createShader(Rect.fromCircle(center: nodeOffset, radius: 20));
-      canvas.drawCircle(nodeOffset, 20, auraPaint);
-
-      // b. Outer Glow Ring
-      final pulseRingPaint = Paint()
-        ..color = const Color(0xFFB3E5FC).withValues(alpha: 0.55)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5;
-      canvas.drawCircle(nodeOffset, 12.5, pulseRingPaint);
-
-      // c. Crescent Moon Vector Path with 3D Metallic Gradient
-      const moonRadius = 8.0;
-      final moonPath = Path()
-        ..addOval(Rect.fromCircle(center: nodeOffset, radius: moonRadius));
-      final cutPath = Path()
-        ..addOval(
-          Rect.fromCircle(
-            center: nodeOffset.translate(3.4, -2.6),
-            radius: moonRadius * 0.88,
-          ),
-        );
-      final crescent = Path.combine(
-        PathOperation.difference,
-        moonPath,
-        cutPath,
-      );
-
-      final moonGradient = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: const [Color(0xFFFFFFFF), Color(0xFFE0F7FA), Color(0xFF81D4FA)],
-      ).createShader(Rect.fromCircle(center: nodeOffset, radius: moonRadius));
-
-      final moonPaint = Paint()..shader = moonGradient;
-      canvas.drawPath(crescent, moonPaint);
-
-      // d. Decorative Twinkling Little Star next to Crescent Moon
-      final starOffset = nodeOffset.translate(-11, -6);
-      _drawLittleStar(canvas, starOffset, 3.0, const Color(0xFFFFF59D));
-    }
-  }
-
-  void _drawLittleStar(Canvas canvas, Offset center, double size, Color color) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final path = Path();
-    for (int i = 0; i < 4; i++) {
-      final angle = i * (math.pi / 2);
-      final rOut = size;
-      final rIn = size * 0.35;
-
-      final x1 = center.dx + rOut * math.cos(angle);
-      final y1 = center.dy + rOut * math.sin(angle);
-      final x2 = center.dx + rIn * math.cos(angle + math.pi / 4);
-      final y2 = center.dy + rIn * math.sin(angle + math.pi / 4);
-
-      if (i == 0) {
-        path.moveTo(x1, y1);
-      } else {
-        path.lineTo(x1, y1);
-      }
-      path.lineTo(x2, y2);
-    }
-    path.close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SunArcPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.isDaytime != isDaytime;
   }
 }
