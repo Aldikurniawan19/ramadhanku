@@ -74,7 +74,10 @@ jobs:
       - name: Prepare Release Artifacts
         run: |
           mkdir -p dist
-          APK_PATH=$(find build/app/outputs/flutter-apk -name "app-release.apk" -type f | head -1)
+          APK_PATH=$(find build/app/outputs/flutter-apk -name "*.apk" -type f | head -1)
+          if [ -z "$APK_PATH" ]; then
+            APK_PATH=$(find build/app/outputs -name "*.apk" -type f | head -1)
+          fi
           if [ -z "$APK_PATH" ]; then
             APK_PATH=$(find build -name "*.apk" -type f | head -1)
           fi
@@ -85,10 +88,11 @@ jobs:
           fi
           
           FINAL_APK_NAME="RamadhanApp-${TAG_NAME}.apk"
+          echo "Found APK at: $APK_PATH"
           cp "$APK_PATH" "dist/${FINAL_APK_NAME}"
           cp "$APK_PATH" "dist/RamadhanApp-release.apk"
           echo "RELEASE_APK=dist/${FINAL_APK_NAME}" >> $GITHUB_ENV
-          echo "APK successfully prepared at dist/${FINAL_APK_NAME}"
+          ls -la dist/
 
       # 9. Upload APK sebagai Artifact (tersedia di tab Actions)
       - name: Upload APK Artifact
