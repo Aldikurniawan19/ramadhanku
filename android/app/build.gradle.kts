@@ -29,7 +29,6 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        setProperty("archivesBaseName", "RamadhanApp")
     }
 
     signingConfigs {
@@ -57,30 +56,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-        }
-    }
-
-    applicationVariants.all {
-        if (buildType.name == "release") {
-            outputs.forEach { output ->
-                val impl = output as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-                impl.outputFileName = "RamadhanApp.apk"
-            }
-        }
-    }
-}
-
-tasks.configureEach {
-    if (name == "assembleRelease") {
-        doLast {
-            val flutterApkDir = file("${project.layout.buildDirectory.get()}/outputs/flutter-apk")
-            val releaseApk = file("${project.layout.buildDirectory.get()}/outputs/apk/release/RamadhanApp.apk")
-            if (releaseApk.exists()) {
-                copy {
-                    from(releaseApk)
-                    into(flutterApkDir)
-                }
-            }
         }
     }
 }
