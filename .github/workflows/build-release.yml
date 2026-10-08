@@ -81,7 +81,7 @@ jobs:
           
           TAG_NAME="${{ github.ref_name }}"
           if [ -z "$TAG_NAME" ] || [[ "$TAG_NAME" != v* ]]; then
-            TAG_NAME="v2.3.0"
+            TAG_NAME="v2.4.0"
           fi
           
           FINAL_APK_NAME="RamadhanApp-${TAG_NAME}.apk"
