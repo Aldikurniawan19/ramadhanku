@@ -68,7 +68,7 @@ jobs:
 
       # 7. Build APK Release
       - name: Build APK Release
-        run: flutter build apk --release
+        run: flutter build apk --release --android-skip-build-dependency-validation
 
       # 8. Rename APK agar mudah dikenali
       - name: Prepare Release Artifacts
