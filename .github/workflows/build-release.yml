@@ -112,7 +112,9 @@ jobs:
           body: |
             ✨ **Pembaruan Ramadhan App ${{ github.ref_name }}**
 
-            ### 🌅 Fitur & Pembaruan Terbaru:
+            ### 🔧 Perbaikan & Pembaruan:
+            - **Upgrade Kotlin ke 2.1.0**: Kompatibilitas dengan Flutter SDK terbaru.
+            - **Upgrade Android SDK ke 36**: Mendukung plugin terbaru (camera, geolocator, shared_preferences).
             - **Latar Langit Realistis & Dinamis**: Pemandangan langit bernyawa 60/120 FPS dengan 8 palet waktu (Subuh, Terbit, Dhuha, Dzuhur, Ashar, Maghrib, Isya, Malam).
             - **Desain Matahari & Bulan Realistis**: Inti pijar matahari putih menyala (*incandescent core*) dengan pendaran *Gaussian bloom*, serta bulan perak bertekstur kawah di malam hari.
             - **Animasi Burung Sore Hari**: Formasi kawanan burung terbang melintasi matahari sore (16:00 hingga matahari tenggelam).

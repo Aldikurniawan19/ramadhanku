@@ -10,7 +10,7 @@ plugins {
 
 android {
     namespace = "com.ramadhan.app.ramadhan_flutter"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -25,8 +25,8 @@ android {
 
     defaultConfig {
         applicationId = "com.ramadhan.app.ramadhan_flutter"
-        minSdk = 23
-        targetSdk = 35
+        minSdk = flutter.minSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
