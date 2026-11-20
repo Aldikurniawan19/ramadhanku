@@ -46,10 +46,11 @@ jobs:
           java-version: "17"
           cache: "gradle"
 
-      # 3. Setup Flutter SDK (Stable Channel)
+      # 3. Setup Flutter SDK (Pinned to stable 3.41.1 matching local & Gradle/AGP config)
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: "3.41.1"
           channel: "stable"
           cache: true
 
