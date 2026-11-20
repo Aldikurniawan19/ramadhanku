@@ -297,7 +297,7 @@ class ProfilScreen extends StatelessWidget {
                                 icon: Icons.notifications_active_rounded,
                                 title: 'Pengaturan Notifikasi',
                                 subtitle:
-                                    'Pengingat suara adzan, imsak & sahur',
+                                    'Pengingat suara adzan & waktu sholat 5 waktu',
                                 onTap: () =>
                                     _showNotificationSettingsSheet(context),
                               ),
@@ -377,7 +377,7 @@ class ProfilScreen extends StatelessWidget {
                             FutureBuilder<PackageInfo>(
                               future: PackageInfo.fromPlatform(),
                               builder: (context, snapshot) {
-                                final version = snapshot.data?.version ?? '2.3.0';
+                                final version = snapshot.data?.version ?? '2.6.0';
                                 return Text(
                                   'Jadwal Sholat & Al-Qur\'an v$version',
                                   style: const TextStyle(
@@ -1380,16 +1380,11 @@ class _NotificationSettingsSheet extends StatefulWidget {
 class _NotificationSettingsSheetState
     extends State<_NotificationSettingsSheet> {
   bool _masterNotification = true;
-  bool _notifyImsak = true;
   bool _notifySubuh = true;
   bool _notifyDzuhur = true;
   bool _notifyAshar = true;
   bool _notifyMaghrib = true;
   bool _notifyIsya = true;
-
-  bool _notifySahurReminder = true;
-  bool _notifyIftharReminder = true;
-  bool _notifyQuranReminder = false;
 
   String _selectedSoundType = 'Full Adzan'; // Full Adzan, Beep, Getar
   AudioPlayer? _audioPlayer;
@@ -1404,15 +1399,11 @@ class _NotificationSettingsSheetState
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _masterNotification = prefs.getBool('notif_master') ?? true;
-      _notifyImsak = prefs.getBool('notif_imsak') ?? true;
       _notifySubuh = prefs.getBool('notif_subuh') ?? true;
       _notifyDzuhur = prefs.getBool('notif_dzuhur') ?? true;
       _notifyAshar = prefs.getBool('notif_ashar') ?? true;
       _notifyMaghrib = prefs.getBool('notif_maghrib') ?? true;
       _notifyIsya = prefs.getBool('notif_isya') ?? true;
-      _notifySahurReminder = prefs.getBool('notif_sahur_reminder') ?? true;
-      _notifyIftharReminder = prefs.getBool('notif_ifthar_reminder') ?? true;
-      _notifyQuranReminder = prefs.getBool('notif_quran_reminder') ?? false;
       _selectedSoundType = prefs.getString('notif_sound_type') ?? 'Full Adzan';
     });
   }
@@ -1420,20 +1411,20 @@ class _NotificationSettingsSheetState
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('notif_master', _masterNotification);
-    await prefs.setBool('notif_imsak', _notifyImsak);
     await prefs.setBool('notif_subuh', _notifySubuh);
     await prefs.setBool('notif_dzuhur', _notifyDzuhur);
     await prefs.setBool('notif_ashar', _notifyAshar);
     await prefs.setBool('notif_maghrib', _notifyMaghrib);
     await prefs.setBool('notif_isya', _notifyIsya);
-    await prefs.setBool('notif_sahur_reminder', _notifySahurReminder);
-    await prefs.setBool('notif_ifthar_reminder', _notifyIftharReminder);
-    await prefs.setBool('notif_quran_reminder', _notifyQuranReminder);
     await prefs.setString('notif_sound_type', _selectedSoundType);
 
     await prefs.setBool('is_adhan_enabled', _masterNotification);
-    await prefs.setBool('is_imsak_enabled', _notifyImsak);
-    await prefs.setBool('is_iftar_enabled', _notifyMaghrib);
+    // Pastikan preferensi lama Imsak / Buka Puasa / Sahur dinonaktifkan
+    await prefs.setBool('notif_imsak', false);
+    await prefs.setBool('is_imsak_enabled', false);
+    await prefs.setBool('is_iftar_enabled', false);
+    await prefs.setBool('notif_sahur_reminder', false);
+    await prefs.setBool('notif_ifthar_reminder', false);
 
     if (!mounted) return;
     try {
@@ -1591,7 +1582,6 @@ class _NotificationSettingsSheetState
                           onChanged: (val) {
                             setState(() {
                               _masterNotification = val;
-                              _notifyImsak = val;
                               _notifySubuh = val;
                               _notifyDzuhur = val;
                               _notifyAshar = val;
@@ -1608,7 +1598,7 @@ class _NotificationSettingsSheetState
 
                   // Section Title: Prayer Times
                   const Text(
-                    'Jadwal Notifikasi Sholat 5 Waktu & Imsak',
+                    'Jadwal Notifikasi Sholat 5 Waktu',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
@@ -1626,12 +1616,6 @@ class _NotificationSettingsSheetState
                     ),
                     child: Column(
                       children: [
-                        _buildSwitchTile(
-                          'Imsak & Sahur',
-                          _notifyImsak,
-                          (v) => setState(() => _notifyImsak = v),
-                        ),
-                        const Divider(height: 1, color: AppColors.cardBorder),
                         _buildSwitchTile(
                           'Sholat Subuh',
                           _notifySubuh,
@@ -1651,7 +1635,7 @@ class _NotificationSettingsSheetState
                         ),
                         const Divider(height: 1, color: AppColors.cardBorder),
                         _buildSwitchTile(
-                          'Maghrib / Buka Puasa',
+                          'Sholat Maghrib',
                           _notifyMaghrib,
                           (v) => setState(() => _notifyMaghrib = v),
                         ),
@@ -1660,55 +1644,6 @@ class _NotificationSettingsSheetState
                           'Sholat Isya',
                           _notifyIsya,
                           (v) => setState(() => _notifyIsya = v),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Section Title: Special Reminders
-                  Consumer<PrayerProvider>(
-                    builder: (context, prayerProv, child) {
-                      final isRamadhan = prayerProv.data?.isRamadhan ?? false;
-                      return Text(
-                        isRamadhan
-                            ? 'Pengingat Khusus Ramadhan & Ibadah'
-                            : 'Pengingat Sahur, Imsak & Ibadah Harian',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textMuted,
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 8),
-
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.cardBorder),
-                    ),
-                    child: Column(
-                      children: [
-                        _buildSwitchTile(
-                          'Pengingat Sahur',
-                          _notifySahurReminder,
-                          (v) => setState(() => _notifySahurReminder = v),
-                        ),
-                        const Divider(height: 1, color: AppColors.cardBorder),
-                        _buildSwitchTile(
-                          'Pengingat Buka Puasa',
-                          _notifyIftharReminder,
-                          (v) => setState(() => _notifyIftharReminder = v),
-                        ),
-                        const Divider(height: 1, color: AppColors.cardBorder),
-                        _buildSwitchTile(
-                          'Pengingat Tadarus Al-Qur\'an Harian',
-                          _notifyQuranReminder,
-                          (v) => setState(() => _notifyQuranReminder = v),
                         ),
                       ],
                     ),

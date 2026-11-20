@@ -187,6 +187,11 @@ class PrayerProvider extends ChangeNotifier with WidgetsBindingObserver {
             nextPrayerName: _data!.nextPrayerName,
             nextPrayerTime: _data!.nextPrayerTime,
             timeRemaining: newRemaining,
+            sunriseTime: _data!.sunriseTime,
+            hijriMonthNumber: _data!.hijriMonthNumber,
+            hijriMonthName: _data!.hijriMonthName,
+            hijriYear: _data!.hijriYear,
+            hijriDay: _data!.hijriDay,
           );
           notifyListeners();
 
@@ -204,23 +209,60 @@ class PrayerProvider extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
-  void _triggerOneMinuteBeforePrayerNotification() {
-    if (_data == null) return;
-    debugPrint('[PrayerProvider] Foreground trigger: 1 min before ${_data!.nextPrayerName}');
+  Future<String?> _resolveEnabledForegroundPrayerName() async {
+    if (_data == null) return null;
+    final lower = _data!.nextPrayerName.toLowerCase();
+
+    // Versi ini hanya memicu notifikasi untuk 5 waktu sholat (tanpa Imsak / Buka Puasa)
+    String? prefKey;
+    String? cleanName;
+    if (lower.contains('subuh')) {
+      prefKey = 'notif_subuh';
+      cleanName = 'Subuh';
+    } else if (lower.contains('dzuhur')) {
+      prefKey = 'notif_dzuhur';
+      cleanName = 'Dzuhur';
+    } else if (lower.contains('ashar')) {
+      prefKey = 'notif_ashar';
+      cleanName = 'Ashar';
+    } else if (lower.contains('maghrib')) {
+      prefKey = 'notif_maghrib';
+      cleanName = 'Maghrib';
+    } else if (lower.contains('isya')) {
+      prefKey = 'notif_isya';
+      cleanName = 'Isya';
+    } else {
+      return null;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final masterOn = prefs.getBool('notif_master') ?? true;
+    final adhanOn = prefs.getBool('is_adhan_enabled') ?? true;
+    final prayerOn = prefs.getBool(prefKey) ?? true;
+    if (!masterOn || !adhanOn || !prayerOn) return null;
+
+    return cleanName;
+  }
+
+  Future<void> _triggerOneMinuteBeforePrayerNotification() async {
+    final cleanName = await _resolveEnabledForegroundPrayerName();
+    if (cleanName == null) return;
+    debugPrint('[PrayerProvider] Foreground trigger: 1 min before $cleanName');
     _notificationService.showInstantNotification(
       id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title: 'Waktu Sholat ${_data!.nextPrayerName} 1 Menit Lagi ($_currentCity)',
-      body: 'Pengingat: 1 menit lagi memasuki waktu sholat ${_data!.nextPrayerName} untuk wilayah $_currentCity dan sekitarnya.',
+      title: 'Waktu Sholat $cleanName 1 Menit Lagi ($_currentCity)',
+      body: 'Pengingat: 1 menit lagi memasuki waktu sholat $cleanName untuk wilayah $_currentCity dan sekitarnya.',
     );
   }
 
-  void _triggerRealtimePrayerNotification() {
-    if (_data == null) return;
-    debugPrint('[PrayerProvider] Foreground trigger: ${_data!.nextPrayerName} time reached');
+  Future<void> _triggerRealtimePrayerNotification() async {
+    final cleanName = await _resolveEnabledForegroundPrayerName();
+    if (cleanName == null) return;
+    debugPrint('[PrayerProvider] Foreground trigger: $cleanName time reached');
     _notificationService.showInstantNotification(
       id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title: 'Waktu Sholat ${_data!.nextPrayerName} ($_currentCity)',
-      body: 'Telah memasuki waktu sholat ${_data!.nextPrayerName} untuk wilayah $_currentCity dan sekitarnya.',
+      title: 'Waktu Sholat $cleanName ($_currentCity)',
+      body: 'Telah memasuki waktu sholat $cleanName untuk wilayah $_currentCity dan sekitarnya.',
     );
   }
 

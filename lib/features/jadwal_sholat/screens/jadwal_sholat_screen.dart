@@ -117,7 +117,10 @@ class _JadwalSholatScreenState extends State<JadwalSholatScreen> {
 
           // Subuh, Terbit, Dzuhur, Ashar, Terbenam & Isya times (from API data or default)
           String subuhTime = '04:38';
-          String terbitTime = '05:58';
+          String terbitTime =
+              (data != null && data.sunriseTime.isNotEmpty)
+              ? data.sunriseTime
+              : '05:50';
           String dzuhurTime = '11:58';
           String asharTime = '15:15';
           String terbenamTime = '18:07';

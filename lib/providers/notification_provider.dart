@@ -2,19 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/services/notification_service.dart';
 import '../data/services/background_alarm_service.dart';
+import '../data/services/background_scheduler_service.dart';
 import '../data/models/prayer_time_model.dart';
 
 class NotificationProvider extends ChangeNotifier {
   final NotificationService _notificationService = NotificationService();
   final BackgroundAlarmService _backgroundAlarmService = BackgroundAlarmService();
+  final BackgroundSchedulerService _backgroundSchedulerService = BackgroundSchedulerService();
 
   bool _isAdhanEnabled = true;
-  bool _isIftarEnabled = true;
-  bool _isImsakEnabled = true;
 
   bool get isAdhanEnabled => _isAdhanEnabled;
-  bool get isIftarEnabled => _isIftarEnabled;
-  bool get isImsakEnabled => _isImsakEnabled;
 
   NotificationProvider() {
     _initAndLoadSettings();
@@ -28,8 +26,6 @@ class NotificationProvider extends ChangeNotifier {
   Future<void> reloadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     _isAdhanEnabled = prefs.getBool('is_adhan_enabled') ?? prefs.getBool('notif_master') ?? true;
-    _isIftarEnabled = prefs.getBool('is_iftar_enabled') ?? prefs.getBool('notif_maghrib') ?? true;
-    _isImsakEnabled = prefs.getBool('is_imsak_enabled') ?? prefs.getBool('notif_imsak') ?? true;
     notifyListeners();
   }
 
@@ -38,26 +34,7 @@ class NotificationProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('is_adhan_enabled', value);
-    if (currentData != null) {
-      await schedulePrayerAlerts(currentData);
-    }
-  }
-
-  Future<void> toggleIftar(bool value, {PrayerTimesData? currentData}) async {
-    _isIftarEnabled = value;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('is_iftar_enabled', value);
-    if (currentData != null) {
-      await schedulePrayerAlerts(currentData);
-    }
-  }
-
-  Future<void> toggleImsak(bool value, {PrayerTimesData? currentData}) async {
-    _isImsakEnabled = value;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('is_imsak_enabled', value);
+    await prefs.setBool('notif_master', value);
     if (currentData != null) {
       await schedulePrayerAlerts(currentData);
     }
@@ -69,8 +46,6 @@ class NotificationProvider extends ChangeNotifier {
         data.prayers,
         data.city,
         isAdhanEnabled: _isAdhanEnabled,
-        isIftarEnabled: _isIftarEnabled,
-        isImsakEnabled: _isImsakEnabled,
       );
     } catch (e) {
       debugPrint('[NotifProvider] Error scheduling prayer times: $e');
@@ -82,11 +57,18 @@ class NotificationProvider extends ChangeNotifier {
         prayers: BackgroundAlarmService.prayerItemsToMaps(data.prayers),
         cityName: data.city,
         isAdhanEnabled: _isAdhanEnabled,
-        isIftarEnabled: _isIftarEnabled,
-        isImsakEnabled: _isImsakEnabled,
       );
     } catch (e) {
       debugPrint('[NotifProvider] Error scheduling background alarms: $e');
+    }
+
+    // Re-sync multi-day background notifications with updated 5-prayer settings
+    try {
+      await _backgroundSchedulerService.scheduleMultiDayNotifications(
+        cityName: data.city,
+      );
+    } catch (e) {
+      debugPrint('[NotifProvider] Error scheduling multi-day notifications: $e');
     }
   }
 
@@ -114,7 +96,7 @@ class NotificationProvider extends ChangeNotifier {
   Future<void> testInstantNotification() async {
     await _notificationService.showInstantNotification(
       id: 999,
-      title: 'Notifikasi Ramadhan Aktif',
+      title: 'Notifikasi Sholat Aktif',
       body: 'Pengingat adzan (1 menit sebelum waktu sholat) telah berhasil diaktifkan.',
     );
   }

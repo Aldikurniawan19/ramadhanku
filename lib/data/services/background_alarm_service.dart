@@ -145,7 +145,7 @@ Future<void> _showNotificationFromBackground({
   const String channelId = 'prayer_adhan_alarm_v7';
   const String channelName = 'Adzan & Waktu Sholat';
   const String channelDesc =
-      'Pengingat otomatis adzan ketika memasuki waktu sholat & buka puasa';
+      'Pengingat otomatis adzan ketika memasuki waktu sholat 5 waktu';
 
   final FlutterLocalNotificationsPlugin plugin =
       FlutterLocalNotificationsPlugin();
@@ -258,12 +258,13 @@ class BackgroundAlarmService {
     }
   }
 
-  /// Cancel all background alarms.
+  /// Cancel all background alarms (including any legacy Imsak slot IDs).
   Future<void> cancelAll() async {
     final prefs = await SharedPreferences.getInstance();
-    final count = prefs.getInt(_keyPrayerCount) ?? 0;
+    final savedCount = prefs.getInt(_keyPrayerCount) ?? 0;
+    final count = savedCount > 6 ? savedCount : 6;
 
-    // Cancel pre-alarm and exact alarm for each prayer
+    // Cancel pre-alarm and exact alarm for each prayer slot
     for (int i = 0; i < count; i++) {
       try {
         await AndroidAlarmManager.cancel(_preAlarmIdBase + i);
@@ -275,15 +276,13 @@ class BackgroundAlarmService {
     debugPrint('[BGAlarm] Cancelled all background alarms (count=$count)');
   }
 
-  /// Schedule background alarms for all prayer times.
+  /// Schedule background alarms for the 5 daily prayer times only.
   /// Stores prayer metadata in SharedPreferences so the background
   /// isolate can read it when the alarm fires.
   Future<void> scheduleAllBackgroundAlarms({
     required List<Map<String, String>> prayers,
     required String cityName,
     bool? isAdhanEnabled,
-    bool? isIftarEnabled,
-    bool? isImsakEnabled,
   }) async {
     await init();
     await cancelAll();
@@ -295,11 +294,10 @@ class BackgroundAlarmService {
       return;
     }
 
-    final imsakOn = isImsakEnabled ?? prefs.getBool('notif_imsak') ?? prefs.getBool('is_imsak_enabled') ?? true;
     final subuhOn = prefs.getBool('notif_subuh') ?? true;
     final dzuhurOn = prefs.getBool('notif_dzuhur') ?? true;
     final asharOn = prefs.getBool('notif_ashar') ?? true;
-    final maghribOn = isIftarEnabled ?? prefs.getBool('notif_maghrib') ?? prefs.getBool('is_iftar_enabled') ?? true;
+    final maghribOn = prefs.getBool('notif_maghrib') ?? true;
     final isyaOn = prefs.getBool('notif_isya') ?? true;
     final adhanGlobalOn = isAdhanEnabled ?? prefs.getBool('is_adhan_enabled') ?? true;
 
@@ -315,16 +313,28 @@ class BackgroundAlarmService {
     for (int i = 0; i < prayers.length; i++) {
       final prayer = prayers[i];
       final pId = (prayer['id'] ?? '').toLowerCase();
-      final pName = prayer['name'] ?? '';
       final pTime = prayer['time'] ?? '';
 
-      // Check toggle settings per prayer
-      if (pId.contains('imsak') && !imsakOn) continue;
-      if (pId.contains('subuh') && (!subuhOn || !adhanGlobalOn)) continue;
-      if (pId.contains('dzuhur') && (!dzuhurOn || !adhanGlobalOn)) continue;
-      if (pId.contains('ashar') && (!asharOn || !adhanGlobalOn)) continue;
-      if (pId.contains('maghrib') && !maghribOn) continue;
-      if (pId.contains('isya') && (!isyaOn || !adhanGlobalOn)) continue;
+      // Hanya jadwalkan alarm untuk 5 waktu sholat (tanpa Imsak / Buka Puasa)
+      String? cleanName;
+      if (pId.contains('subuh')) {
+        if (!subuhOn || !adhanGlobalOn) continue;
+        cleanName = 'Subuh';
+      } else if (pId.contains('dzuhur')) {
+        if (!dzuhurOn || !adhanGlobalOn) continue;
+        cleanName = 'Dzuhur';
+      } else if (pId.contains('ashar')) {
+        if (!asharOn || !adhanGlobalOn) continue;
+        cleanName = 'Ashar';
+      } else if (pId.contains('maghrib')) {
+        if (!maghribOn || !adhanGlobalOn) continue;
+        cleanName = 'Maghrib';
+      } else if (pId.contains('isya')) {
+        if (!isyaOn || !adhanGlobalOn) continue;
+        cleanName = 'Isya';
+      } else {
+        continue;
+      }
 
       try {
         final timeClean = pTime.replaceAll(RegExp(r'[^\d:]'), '').trim();
@@ -352,33 +362,15 @@ class BackgroundAlarmService {
         // 1 minute before prayer time
         final oneMinBeforeTz = exactPrayerTz.subtract(const Duration(minutes: 1));
 
-        // Prepare titles & bodies (same as notification_service.dart)
-        String preTitle;
-        String preBody;
-        String exactTitle;
-        String exactBody;
-
-        if (pId == 'imsak') {
-          preTitle = 'Waktu Imsak 1 Menit Lagi';
-          preBody = 'Pengingat ($cityName): 1 menit lagi memasuki waktu Imsak.';
-          exactTitle = 'Waktu Imsak Telah Tiba';
-          exactBody = 'Telah memasuki waktu Imsak untuk wilayah $cityName dan sekitarnya. Segera selesaikan sahur.';
-        } else if (pId == 'maghrib') {
-          preTitle = 'Buka Puasa 1 Menit Lagi';
-          preBody = 'Pengingat ($cityName): 1 menit lagi memasuki waktu Maghrib & berbuka puasa.';
-          exactTitle = 'Waktu Buka Puasa Telah Tiba!';
-          exactBody = 'Selamat berbuka puasa untuk wilayah $cityName dan sekitarnya. Selamat menunaikan ibadah sholat Maghrib.';
-        } else {
-          preTitle = 'Waktu Sholat $pName 1 Menit Lagi';
-          preBody = 'Pengingat ($cityName): 1 menit lagi memasuki waktu sholat $pName.';
-          exactTitle = 'Waktu Sholat $pName Telah Tiba';
-          exactBody = 'Telah memasuki waktu sholat $pName untuk wilayah $cityName dan sekitarnya. Mari bersiap wudhu dan sholat.';
-        }
+        // Prepare pure prayer notification titles & bodies
+        final preTitle = 'Waktu Sholat $cleanName 1 Menit Lagi';
+        final preBody = 'Pengingat ($cityName): 1 menit lagi memasuki waktu sholat $cleanName.';
+        final exactTitle = 'Waktu Sholat $cleanName Telah Tiba';
+        final exactBody = 'Telah memasuki waktu sholat $cleanName untuk wilayah $cityName dan sekitarnya. Mari bersiap wudhu dan sholat.';
 
         // --- A. Schedule 1 MINUTE BEFORE via AndroidAlarmManager ---
         final preAlarmId = _preAlarmIdBase + i;
         if (oneMinBeforeTz.isAfter(nowTz)) {
-          // Store notification data for background isolate
           await prefs.setString('bg_alarm_title_$preAlarmId', preTitle);
           await prefs.setString('bg_alarm_body_$preAlarmId', preBody);
 
@@ -402,7 +394,7 @@ class BackgroundAlarmService {
           if (scheduled) scheduledCount++;
         }
       } catch (e) {
-        debugPrint('[BGAlarm] Error scheduling $pName: $e');
+        debugPrint('[BGAlarm] Error scheduling $cleanName: $e');
       }
     }
 

@@ -84,7 +84,7 @@ jobs:
           
           TAG_NAME="${{ github.ref_name }}"
           if [ -z "$TAG_NAME" ] || [[ "$TAG_NAME" != v* ]]; then
-            TAG_NAME="v2.4.0"
+            TAG_NAME="v2.6.0"
           fi
           
           FINAL_APK_NAME="RamadhanApp-${TAG_NAME}.apk"
@@ -112,15 +112,14 @@ jobs:
           body: |
             ✨ **Pembaruan Ramadhan App ${{ github.ref_name }}**
 
-            ### 🔧 Perbaikan & Pembaruan:
-            - **Upgrade Kotlin ke 2.1.0**: Kompatibilitas dengan Flutter SDK terbaru.
-            - **Upgrade Android SDK ke 36**: Mendukung plugin terbaru (camera, geolocator, shared_preferences).
-            - **Latar Langit Realistis & Dinamis**: Pemandangan langit bernyawa 60/120 FPS dengan 8 palet waktu (Subuh, Terbit, Dhuha, Dzuhur, Ashar, Maghrib, Isya, Malam).
-            - **Desain Matahari & Bulan Realistis**: Inti pijar matahari putih menyala (*incandescent core*) dengan pendaran *Gaussian bloom*, serta bulan perak bertekstur kawah di malam hari.
-            - **Animasi Burung Sore Hari**: Formasi kawanan burung terbang melintasi matahari sore (16:00 hingga matahari tenggelam).
-            - **Awan Tenang & Dinamis**: Dinamika awan lembut bergantian dengan ritme pergerakan yang tenang dan alami.
-            - **Gelombang Laut & Refleksi Matahari**: Simulasi air 3D dengan pantulan pendar matahari dan kilau lembut.
-            - **Pemutar Murottal Al-Qur'an**: Sinkronisasi ayat & highlight kata per kata secara real-time dengan pilihan qari terbaik.
+            ### 🌅 Pembaruan Tampilan Langit & Jadwal Sholat:
+            - **Awan Organik Non-Template**: Sistem generator awan prosedural 5 tipe alami (*cumulus*, *stratocumulus*, *fractus*, *altocumulus*, *cirrus*) yang berubah setiap hari dan bergerak kontinu mengikuti jam nyata.
+            - **Posisi Matahari & Bulan Akurat Sesuai Waktu**: Lintasan melengkung realistis Timur → Puncak (Dzuhur / Tengah Malam) → Barat, sinkron dengan waktu Terbit (`Sunrise`) asli dari API, serta perbaikan bug Bulan hilang setelah tengah malam.
+            - **Refleksi Air Realistis**: Cermin langit *Fresnel*, pantulan terbalik bergelombang untuk gunung, masjid, menara, palem, dan jendela bercahaya, serta jalur kilau pantulan Matahari/Bulan yang mengikuti posisi asli di langit.
+            - **Siluet Arsitektur Pesisir Lebih Kaya**: Lanskap 2 lapis dengan masjid agung, kubah bertingkat, menara kembar berbalkon ganda, hiasan bulan sabit, menara lentera dermaga, dan deretan pohon palem.
+
+            ### 🔔 Pembaruan Notifikasi:
+            - **Fokus Notifikasi 5 Waktu Sholat**: Menghapus pengingat Imsak & Buka Puasa untuk versi ini sehingga notifikasi dan pengaturan fokus khusus pada 5 waktu sholat wajib (Subuh, Dzuhur, Ashar, Maghrib, Isya).
           files: |
             dist/*.apk
           draft: false

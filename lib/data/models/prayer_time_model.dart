@@ -28,6 +28,7 @@ class PrayerTimesData {
   final String nextPrayerName;
   final String nextPrayerTime;
   final Duration timeRemaining;
+  final String sunriseTime;
   final int hijriMonthNumber;
   final String hijriMonthName;
   final String hijriYear;
@@ -54,6 +55,7 @@ class PrayerTimesData {
     required this.nextPrayerName,
     required this.nextPrayerTime,
     required this.timeRemaining,
+    this.sunriseTime = '05:50',
     this.hijriMonthNumber = 2,
     this.hijriMonthName = 'Safar',
     this.hijriYear = '1448 H',

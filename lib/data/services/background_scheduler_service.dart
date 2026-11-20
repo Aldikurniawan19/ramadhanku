@@ -154,13 +154,12 @@ Future<void> backgroundAutoRefreshCallback() async {
         }
       }
 
-      // Fallback: static defaults
+      // Fallback: static defaults (5 waktu sholat saja)
       prayers ??= [
-        {'id': 'imsak', 'name': 'Imsak', 'time': '04:28'},
         {'id': 'subuh', 'name': 'Subuh', 'time': '04:38'},
         {'id': 'dzuhur', 'name': 'Dzuhur', 'time': '11:57'},
         {'id': 'ashar', 'name': 'Ashar', 'time': '15:13'},
-        {'id': 'maghrib', 'name': 'Maghrib (Buka Puasa)', 'time': '18:02'},
+        {'id': 'maghrib', 'name': 'Maghrib', 'time': '18:02'},
         {'id': 'isya', 'name': 'Isya', 'time': '19:12'},
       ];
 
@@ -195,19 +194,25 @@ List<Map<String, String>> _extractTimings(Map<String, dynamic> t) {
   }
 
   return [
-    {'id': 'imsak', 'name': 'Imsak', 'time': cleanTime(t['Imsak'])},
     {'id': 'subuh', 'name': 'Subuh', 'time': cleanTime(t['Fajr'])},
     {'id': 'dzuhur', 'name': 'Dzuhur', 'time': cleanTime(t['Dhuhr'])},
     {'id': 'ashar', 'name': 'Ashar', 'time': cleanTime(t['Asr'])},
-    {'id': 'maghrib', 'name': 'Maghrib (Buka Puasa)', 'time': cleanTime(t['Maghrib'])},
+    {'id': 'maghrib', 'name': 'Maghrib', 'time': cleanTime(t['Maghrib'])},
     {'id': 'isya', 'name': 'Isya', 'time': cleanTime(t['Isha'])},
   ];
 }
 
-/// Schedule notifications for all cached prayer days from the background isolate.
+/// Schedule notifications for all cached prayer days from the background isolate (5 waktu sholat saja).
 Future<void> _scheduleNotificationsFromCache() async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.reload();
+
+  // Cancel any old multi-day alarms (including legacy Imsak IDs)
+  for (int id = _multiDayAlarmIdBase; id < _multiDayAlarmIdBase + (7 * _alarmsPerDay); id++) {
+    try {
+      await AndroidAlarmManager.cancel(id);
+    } catch (_) {}
+  }
 
   final masterOn = prefs.getBool('notif_master') ?? true;
   if (!masterOn) {
@@ -215,11 +220,10 @@ Future<void> _scheduleNotificationsFromCache() async {
     return;
   }
 
-  final imsakOn = prefs.getBool('notif_imsak') ?? prefs.getBool('is_imsak_enabled') ?? true;
   final subuhOn = prefs.getBool('notif_subuh') ?? true;
   final dzuhurOn = prefs.getBool('notif_dzuhur') ?? true;
   final asharOn = prefs.getBool('notif_ashar') ?? true;
-  final maghribOn = prefs.getBool('notif_maghrib') ?? prefs.getBool('is_iftar_enabled') ?? true;
+  final maghribOn = prefs.getBool('notif_maghrib') ?? true;
   final isyaOn = prefs.getBool('notif_isya') ?? true;
   final adhanGlobalOn = prefs.getBool('is_adhan_enabled') ?? true;
 
@@ -239,7 +243,7 @@ Future<void> _scheduleNotificationsFromCache() async {
     await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
       'prayer_adhan_alarm_v7',
       'Adzan & Waktu Sholat',
-      description: 'Pengingat otomatis adzan ketika memasuki waktu sholat & buka puasa',
+      description: 'Pengingat otomatis adzan ketika memasuki waktu sholat 5 waktu',
       importance: Importance.max,
       playSound: true,
       sound: RawResourceAndroidNotificationSound('adzan'),
@@ -272,16 +276,28 @@ Future<void> _scheduleNotificationsFromCache() async {
     for (int i = 0; i < prayers.length; i++) {
       final prayer = prayers[i];
       final pId = (prayer['id'] ?? '').toLowerCase();
-      final pName = prayer['name'] ?? '';
       final pTime = prayer['time'] ?? '';
 
-      // Check toggle settings per prayer
-      if (pId.contains('imsak') && !imsakOn) continue;
-      if (pId.contains('subuh') && (!subuhOn || !adhanGlobalOn)) continue;
-      if (pId.contains('dzuhur') && (!dzuhurOn || !adhanGlobalOn)) continue;
-      if (pId.contains('ashar') && (!asharOn || !adhanGlobalOn)) continue;
-      if (pId.contains('maghrib') && !maghribOn) continue;
-      if (pId.contains('isya') && (!isyaOn || !adhanGlobalOn)) continue;
+      // Hanya jadwalkan 5 waktu sholat (tanpa Imsak / Buka Puasa)
+      String? cleanName;
+      if (pId.contains('subuh')) {
+        if (!subuhOn || !adhanGlobalOn) continue;
+        cleanName = 'Subuh';
+      } else if (pId.contains('dzuhur')) {
+        if (!dzuhurOn || !adhanGlobalOn) continue;
+        cleanName = 'Dzuhur';
+      } else if (pId.contains('ashar')) {
+        if (!asharOn || !adhanGlobalOn) continue;
+        cleanName = 'Ashar';
+      } else if (pId.contains('maghrib')) {
+        if (!maghribOn || !adhanGlobalOn) continue;
+        cleanName = 'Maghrib';
+      } else if (pId.contains('isya')) {
+        if (!isyaOn || !adhanGlobalOn) continue;
+        cleanName = 'Isya';
+      } else {
+        continue;
+      }
 
       try {
         final timeClean = pTime.replaceAll(RegExp(r'[^\d:]'), '').trim();
@@ -297,25 +313,10 @@ Future<void> _scheduleNotificationsFromCache() async {
 
         final oneMinBeforeTz = exactPrayerTz.subtract(const Duration(minutes: 1));
 
-        // Prepare titles & bodies
-        String preTitle, preBody, exactTitle, exactBody;
-
-        if (pId == 'imsak') {
-          preTitle = 'Waktu Imsak 1 Menit Lagi';
-          preBody = 'Pengingat ($city): 1 menit lagi memasuki waktu Imsak.';
-          exactTitle = 'Waktu Imsak Telah Tiba';
-          exactBody = 'Telah memasuki waktu Imsak untuk wilayah $city dan sekitarnya. Segera selesaikan sahur.';
-        } else if (pId == 'maghrib') {
-          preTitle = 'Buka Puasa 1 Menit Lagi';
-          preBody = 'Pengingat ($city): 1 menit lagi memasuki waktu Maghrib & berbuka puasa.';
-          exactTitle = 'Waktu Buka Puasa Telah Tiba!';
-          exactBody = 'Selamat berbuka puasa untuk wilayah $city dan sekitarnya. Selamat menunaikan ibadah sholat Maghrib.';
-        } else {
-          preTitle = 'Waktu Sholat $pName 1 Menit Lagi';
-          preBody = 'Pengingat ($city): 1 menit lagi memasuki waktu sholat $pName.';
-          exactTitle = 'Waktu Sholat $pName Telah Tiba';
-          exactBody = 'Telah memasuki waktu sholat $pName untuk wilayah $city dan sekitarnya. Mari bersiap wudhu dan sholat.';
-        }
+        final preTitle = 'Waktu Sholat $cleanName 1 Menit Lagi';
+        final preBody = 'Pengingat ($city): 1 menit lagi memasuki waktu sholat $cleanName.';
+        final exactTitle = 'Waktu Sholat $cleanName Telah Tiba';
+        final exactBody = 'Telah memasuki waktu sholat $cleanName untuk wilayah $city dan sekitarnya. Mari bersiap wudhu dan sholat.';
 
         // Alarm IDs: base + (dayIdx * 12) + (prayer * 2) + offset
         final baseId = _multiDayAlarmIdBase + (dayIdx * _alarmsPerDay) + (i * 2);
@@ -386,7 +387,7 @@ Future<void> _scheduleNotificationsFromCache() async {
           }
         }
       } catch (e) {
-        debugPrint('[BGScheduler] Error scheduling $pName for $dateStr: $e');
+        debugPrint('[BGScheduler] Error scheduling $cleanName for $dateStr: $e');
       }
     }
   }
@@ -430,7 +431,7 @@ Future<void> _multiDayAlarmCallback(int alarmId) async {
     await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
       'prayer_adhan_alarm_v7',
       'Adzan & Waktu Sholat',
-      description: 'Pengingat otomatis adzan ketika memasuki waktu sholat & buka puasa',
+      description: 'Pengingat otomatis adzan ketika memasuki waktu sholat 5 waktu',
       importance: Importance.max,
       playSound: true,
       sound: RawResourceAndroidNotificationSound('adzan'),
@@ -442,7 +443,7 @@ Future<void> _multiDayAlarmCallback(int alarmId) async {
   final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
     'prayer_adhan_alarm_v7',
     'Adzan & Waktu Sholat',
-    channelDescription: 'Pengingat otomatis adzan ketika memasuki waktu sholat & buka puasa',
+    channelDescription: 'Pengingat otomatis adzan ketika memasuki waktu sholat 5 waktu',
     importance: Importance.max,
     priority: Priority.max,
     visibility: NotificationVisibility.public,
@@ -780,13 +781,12 @@ class BackgroundSchedulerService {
           } catch (_) {}
         }
 
-        // Fallback defaults
+        // Fallback defaults (5 waktu sholat saja)
         prayers ??= [
-          {'id': 'imsak', 'name': 'Imsak', 'time': '04:28'},
           {'id': 'subuh', 'name': 'Subuh', 'time': '04:38'},
           {'id': 'dzuhur', 'name': 'Dzuhur', 'time': '11:57'},
           {'id': 'ashar', 'name': 'Ashar', 'time': '15:13'},
-          {'id': 'maghrib', 'name': 'Maghrib (Buka Puasa)', 'time': '18:02'},
+          {'id': 'maghrib', 'name': 'Maghrib', 'time': '18:02'},
           {'id': 'isya', 'name': 'Isya', 'time': '19:12'},
         ];
 
@@ -808,20 +808,26 @@ class BackgroundSchedulerService {
     }
   }
 
-  /// Schedule multi-day notifications from cached data.
+  /// Schedule multi-day notifications from cached data (5 waktu sholat saja).
   /// This uses AndroidAlarmManager for maximum reliability even when app is killed.
   Future<void> scheduleMultiDayNotifications({required String cityName}) async {
     await init();
+
+    // Cancel old multi-day alarms first (including any legacy Imsak alarm IDs)
+    for (int id = _multiDayAlarmIdBase; id < _multiDayAlarmIdBase + (7 * _alarmsPerDay); id++) {
+      try {
+        await AndroidAlarmManager.cancel(id);
+      } catch (_) {}
+    }
 
     final prefs = await SharedPreferences.getInstance();
     final masterOn = prefs.getBool('notif_master') ?? true;
     if (!masterOn) return;
 
-    final imsakOn = prefs.getBool('notif_imsak') ?? prefs.getBool('is_imsak_enabled') ?? true;
     final subuhOn = prefs.getBool('notif_subuh') ?? true;
     final dzuhurOn = prefs.getBool('notif_dzuhur') ?? true;
     final asharOn = prefs.getBool('notif_ashar') ?? true;
-    final maghribOn = prefs.getBool('notif_maghrib') ?? prefs.getBool('is_iftar_enabled') ?? true;
+    final maghribOn = prefs.getBool('notif_maghrib') ?? true;
     final isyaOn = prefs.getBool('notif_isya') ?? true;
     final adhanGlobalOn = prefs.getBool('is_adhan_enabled') ?? true;
 
@@ -840,13 +846,6 @@ class BackgroundSchedulerService {
     final nowTz = tz.TZDateTime.now(location);
     int scheduledCount = 0;
 
-    // Cancel old multi-day alarms
-    for (int id = _multiDayAlarmIdBase; id < _multiDayAlarmIdBase + (7 * _alarmsPerDay); id++) {
-      try {
-        await AndroidAlarmManager.cancel(id);
-      } catch (_) {}
-    }
-
     final cachedDates = await PrayerCacheService.getCachedDates();
 
     for (int dayIdx = 0; dayIdx < cachedDates.length && dayIdx < 7; dayIdx++) {
@@ -864,16 +863,28 @@ class BackgroundSchedulerService {
       for (int i = 0; i < prayers.length; i++) {
         final prayer = prayers[i];
         final pId = (prayer['id'] ?? '').toLowerCase();
-        final pName = prayer['name'] ?? '';
         final pTime = prayer['time'] ?? '';
 
-        // Check toggle settings
-        if (pId.contains('imsak') && !imsakOn) continue;
-        if (pId.contains('subuh') && (!subuhOn || !adhanGlobalOn)) continue;
-        if (pId.contains('dzuhur') && (!dzuhurOn || !adhanGlobalOn)) continue;
-        if (pId.contains('ashar') && (!asharOn || !adhanGlobalOn)) continue;
-        if (pId.contains('maghrib') && !maghribOn) continue;
-        if (pId.contains('isya') && (!isyaOn || !adhanGlobalOn)) continue;
+        // Hanya jadwalkan 5 waktu sholat (tanpa Imsak / Buka Puasa)
+        String? cleanName;
+        if (pId.contains('subuh')) {
+          if (!subuhOn || !adhanGlobalOn) continue;
+          cleanName = 'Subuh';
+        } else if (pId.contains('dzuhur')) {
+          if (!dzuhurOn || !adhanGlobalOn) continue;
+          cleanName = 'Dzuhur';
+        } else if (pId.contains('ashar')) {
+          if (!asharOn || !adhanGlobalOn) continue;
+          cleanName = 'Ashar';
+        } else if (pId.contains('maghrib')) {
+          if (!maghribOn || !adhanGlobalOn) continue;
+          cleanName = 'Maghrib';
+        } else if (pId.contains('isya')) {
+          if (!isyaOn || !adhanGlobalOn) continue;
+          cleanName = 'Isya';
+        } else {
+          continue;
+        }
 
         try {
           final timeClean = pTime.replaceAll(RegExp(r'[^\d:]'), '').trim();
@@ -889,24 +900,10 @@ class BackgroundSchedulerService {
 
           final oneMinBeforeTz = exactPrayerTz.subtract(const Duration(minutes: 1));
 
-          String preTitle, preBody, exactTitle, exactBody;
-
-          if (pId == 'imsak') {
-            preTitle = 'Waktu Imsak 1 Menit Lagi';
-            preBody = 'Pengingat ($cityName): 1 menit lagi memasuki waktu Imsak.';
-            exactTitle = 'Waktu Imsak Telah Tiba';
-            exactBody = 'Telah memasuki waktu Imsak untuk wilayah $cityName dan sekitarnya. Segera selesaikan sahur.';
-          } else if (pId == 'maghrib') {
-            preTitle = 'Buka Puasa 1 Menit Lagi';
-            preBody = 'Pengingat ($cityName): 1 menit lagi memasuki waktu Maghrib & berbuka puasa.';
-            exactTitle = 'Waktu Buka Puasa Telah Tiba!';
-            exactBody = 'Selamat berbuka puasa untuk wilayah $cityName dan sekitarnya. Selamat menunaikan ibadah sholat Maghrib.';
-          } else {
-            preTitle = 'Waktu Sholat $pName 1 Menit Lagi';
-            preBody = 'Pengingat ($cityName): 1 menit lagi memasuki waktu sholat $pName.';
-            exactTitle = 'Waktu Sholat $pName Telah Tiba';
-            exactBody = 'Telah memasuki waktu sholat $pName untuk wilayah $cityName dan sekitarnya. Mari bersiap wudhu dan sholat.';
-          }
+          final preTitle = 'Waktu Sholat $cleanName 1 Menit Lagi';
+          final preBody = 'Pengingat ($cityName): 1 menit lagi memasuki waktu sholat $cleanName.';
+          final exactTitle = 'Waktu Sholat $cleanName Telah Tiba';
+          final exactBody = 'Telah memasuki waktu sholat $cleanName untuk wilayah $cityName dan sekitarnya. Mari bersiap wudhu dan sholat.';
 
           final baseId = _multiDayAlarmIdBase + (dayIdx * _alarmsPerDay) + (i * 2);
 
@@ -976,7 +973,7 @@ class BackgroundSchedulerService {
             }
           }
         } catch (e) {
-          debugPrint('[BGScheduler] Error scheduling $pName: $e');
+          debugPrint('[BGScheduler] Error scheduling $cleanName: $e');
         }
       }
     }
@@ -984,7 +981,7 @@ class BackgroundSchedulerService {
     debugPrint('[BGScheduler] Scheduled $scheduledCount multi-day alarms from main isolate');
   }
 
-  /// Helper to extract timings (usable from main isolate).
+  /// Helper to extract timings (usable from main isolate — 5 waktu sholat saja).
   static List<Map<String, String>> _extractTimingsMain(Map<String, dynamic> t) {
     String cleanTime(dynamic val) {
       if (val == null) return '00:00';
@@ -993,11 +990,10 @@ class BackgroundSchedulerService {
     }
 
     return [
-      {'id': 'imsak', 'name': 'Imsak', 'time': cleanTime(t['Imsak'])},
       {'id': 'subuh', 'name': 'Subuh', 'time': cleanTime(t['Fajr'])},
       {'id': 'dzuhur', 'name': 'Dzuhur', 'time': cleanTime(t['Dhuhr'])},
       {'id': 'ashar', 'name': 'Ashar', 'time': cleanTime(t['Asr'])},
-      {'id': 'maghrib', 'name': 'Maghrib (Buka Puasa)', 'time': cleanTime(t['Maghrib'])},
+      {'id': 'maghrib', 'name': 'Maghrib', 'time': cleanTime(t['Maghrib'])},
       {'id': 'isya', 'name': 'Isya', 'time': cleanTime(t['Isha'])},
     ];
   }

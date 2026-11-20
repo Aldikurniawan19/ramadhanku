@@ -165,6 +165,7 @@ class PrayerService {
     final fallbackTimings = {
       'Imsak': '04:28',
       'Fajr': '04:38',
+      'Sunrise': '05:50',
       'Dhuhr': '11:57',
       'Asr': '15:13',
       'Maghrib': '18:02',
@@ -345,6 +346,9 @@ class PrayerService {
       dateReadable = DateFormat('EEEE, d MMMM yyyy').format(now);
     }
 
+    final rawSunrise = t['Sunrise'] != null ? cleanTime(t['Sunrise']) : '05:50';
+    final sunriseTime = rawSunrise == '00:00' ? '05:50' : rawSunrise;
+
     return PrayerTimesData(
       prayers: prayers,
       city: locationName,
@@ -352,6 +356,7 @@ class PrayerService {
       nextPrayerName: prayers[nextIndex].name,
       nextPrayerTime: prayers[nextIndex].time,
       timeRemaining: minDiff,
+      sunriseTime: sunriseTime,
       hijriMonthNumber: hijriMonthNumber,
       hijriMonthName: hijriMonthName,
       hijriYear: hijriYear,

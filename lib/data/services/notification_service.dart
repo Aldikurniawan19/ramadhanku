@@ -57,7 +57,7 @@ class NotificationService {
   static const String _prayerChannelId = 'prayer_adhan_alarm_v7';
   static const String _prayerChannelName = 'Adzan & Waktu Sholat';
   static const String _prayerChannelDesc =
-      'Pengingat otomatis adzan ketika memasuki waktu sholat & buka puasa';
+      'Pengingat otomatis adzan ketika memasuki waktu sholat 5 waktu';
   static const String _testChannelId = 'prayer_test_alarm_v7';
 
   Future<void> init() async {
@@ -373,8 +373,6 @@ class NotificationService {
     List<PrayerItem> prayers,
     String cityName, {
     bool? isAdhanEnabled,
-    bool? isIftarEnabled,
-    bool? isImsakEnabled,
   }) async {
     await init();
     await cancelAllNotifications();
@@ -387,11 +385,10 @@ class NotificationService {
       return;
     }
 
-    final imsakOn = isImsakEnabled ?? prefs.getBool('notif_imsak') ?? prefs.getBool('is_imsak_enabled') ?? true;
     final subuhOn = prefs.getBool('notif_subuh') ?? true;
     final dzuhurOn = prefs.getBool('notif_dzuhur') ?? true;
     final asharOn = prefs.getBool('notif_ashar') ?? true;
-    final maghribOn = isIftarEnabled ?? prefs.getBool('notif_maghrib') ?? prefs.getBool('is_iftar_enabled') ?? true;
+    final maghribOn = prefs.getBool('notif_maghrib') ?? true;
     final isyaOn = prefs.getBool('notif_isya') ?? true;
     final adhanGlobalOn = isAdhanEnabled ?? prefs.getBool('is_adhan_enabled') ?? true;
 
@@ -407,13 +404,26 @@ class NotificationService {
       final prayer = prayers[i];
       final pId = prayer.id.toLowerCase();
 
-      // Check toggle settings per prayer
-      if (pId.contains('imsak') && !imsakOn) continue;
-      if (pId.contains('subuh') && (!subuhOn || !adhanGlobalOn)) continue;
-      if (pId.contains('dzuhur') && (!dzuhurOn || !adhanGlobalOn)) continue;
-      if (pId.contains('ashar') && (!asharOn || !adhanGlobalOn)) continue;
-      if (pId.contains('maghrib') && !maghribOn) continue;
-      if (pId.contains('isya') && (!isyaOn || !adhanGlobalOn)) continue;
+      // Hanya jadwalkan notifikasi untuk 5 waktu sholat (tanpa Imsak / Buka Puasa)
+      String? cleanPrayerName;
+      if (pId.contains('subuh')) {
+        if (!subuhOn || !adhanGlobalOn) continue;
+        cleanPrayerName = 'Subuh';
+      } else if (pId.contains('dzuhur')) {
+        if (!dzuhurOn || !adhanGlobalOn) continue;
+        cleanPrayerName = 'Dzuhur';
+      } else if (pId.contains('ashar')) {
+        if (!asharOn || !adhanGlobalOn) continue;
+        cleanPrayerName = 'Ashar';
+      } else if (pId.contains('maghrib')) {
+        if (!maghribOn || !adhanGlobalOn) continue;
+        cleanPrayerName = 'Maghrib';
+      } else if (pId.contains('isya')) {
+        if (!isyaOn || !adhanGlobalOn) continue;
+        cleanPrayerName = 'Isya';
+      } else {
+        continue;
+      }
 
       try {
         final timeClean = prayer.time.replaceAll(RegExp(r'[^\d:]'), '').trim();
@@ -441,28 +451,11 @@ class NotificationService {
         // 2. Calculate 1 MINUTE BEFORE prayer time
         final oneMinBeforeTz = exactPrayerTz.subtract(const Duration(minutes: 1));
 
-        // Prepare titles & bodies
-        String preTitle;
-        String preBody;
-        String exactTitle;
-        String exactBody;
-
-        if (pId == 'imsak') {
-          preTitle = 'Waktu Imsak 1 Menit Lagi';
-          preBody = 'Pengingat ($cityName): 1 menit lagi memasuki waktu Imsak.';
-          exactTitle = 'Waktu Imsak Telah Tiba';
-          exactBody = 'Telah memasuki waktu Imsak untuk wilayah $cityName dan sekitarnya. Segera selesaikan sahur.';
-        } else if (pId == 'maghrib') {
-          preTitle = 'Buka Puasa 1 Menit Lagi';
-          preBody = 'Pengingat ($cityName): 1 menit lagi memasuki waktu Maghrib & berbuka puasa.';
-          exactTitle = 'Waktu Buka Puasa Telah Tiba!';
-          exactBody = 'Selamat berbuka puasa untuk wilayah $cityName dan sekitarnya. Selamat menunaikan ibadah sholat Maghrib.';
-        } else {
-          preTitle = 'Waktu Sholat ${prayer.name} 1 Menit Lagi';
-          preBody = 'Pengingat ($cityName): 1 menit lagi memasuki waktu sholat ${prayer.name}.';
-          exactTitle = 'Waktu Sholat ${prayer.name} Telah Tiba';
-          exactBody = 'Telah memasuki waktu sholat ${prayer.name} untuk wilayah $cityName dan sekitarnya. Mari bersiap wudhu dan sholat.';
-        }
+        // Prepare pure prayer notification titles & bodies
+        final preTitle = 'Waktu Sholat $cleanPrayerName 1 Menit Lagi';
+        final preBody = 'Pengingat ($cityName): 1 menit lagi memasuki waktu sholat $cleanPrayerName.';
+        final exactTitle = 'Waktu Sholat $cleanPrayerName Telah Tiba';
+        final exactBody = 'Telah memasuki waktu sholat $cleanPrayerName untuk wilayah $cityName dan sekitarnya. Mari bersiap wudhu dan sholat.';
 
         // --- A. Schedule 1 MINUTE BEFORE Notification (ID: 100 + i) ---
         if (oneMinBeforeTz.isAfter(nowTz)) {
@@ -487,7 +480,7 @@ class NotificationService {
         }
 
       } catch (e) {
-        debugPrint('[NotifService] ERROR scheduling ${prayer.name}: $e');
+        debugPrint('[NotifService] ERROR scheduling $cleanPrayerName: $e');
       }
     }
 
